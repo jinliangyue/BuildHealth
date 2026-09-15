@@ -1,23 +1,38 @@
 /**
- * Axios HTTP client · Phase 0 占位
- * Phase 1 完善错误处理 + 拦截器
+ * Axios HTTP Client · Phase 2
+ * - 统一 baseURL（Vite proxy /api → backend）
+ * - 错误拦截 + 友好错误抛出
  */
-import axios from "axios";
+import axios, { AxiosError } from "axios";
+
+export class APIError extends Error {
+  status: number;
+  detail: string;
+  constructor(status: number, detail: string) {
+    super(`API Error ${status}: ${detail}`);
+    this.name = "APIError";
+    this.status = status;
+    this.detail = detail;
+  }
+}
 
 const apiClient = axios.create({
   baseURL: "/api",
-  timeout: 10000,
-  headers: {
-    "Content-Type": "application/json",
-  },
+  timeout: 15000,
+  headers: { "Content-Type": "application/json" },
 });
 
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
-    // Phase 1: 统一错误处理
-    console.error("API Error:", error.response?.data || error.message);
-    return Promise.reject(error);
+  (error: AxiosError<{ detail?: string }>) => {
+    if (error.response) {
+      const detail = error.response.data?.detail || error.message;
+      throw new APIError(error.response.status, detail);
+    }
+    if (error.request) {
+      throw new APIError(0, "Network error: backend not reachable");
+    }
+    throw new APIError(-1, error.message);
   },
 );
 

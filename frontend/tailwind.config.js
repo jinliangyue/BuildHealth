@@ -4,23 +4,30 @@ export default {
   theme: {
     extend: {
       colors: {
-        // 风险等级配色（与 docs/07 一致）
+        engineering: {
+          bg: "#F8FAFC",
+          surface: "#FFFFFF",
+          border: "#E2E8F0",
+          text: "#1E293B",
+          muted: "#64748B",
+          accent: "#1E40AF",
+        },
         risk: {
           normal: "#10B981",
           attention: "#F59E0B",
           abnormal: "#F97316",
-          high: "#EF4444",
-        },
-        engineering: {
-          bg: "#0F172A",
-          surface: "#1E293B",
-          border: "#334155",
-          text: "#E2E8F0",
-          muted: "#94A3B8",
+          high: "#DC2626",
         },
       },
       fontFamily: {
-        sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+        sans: [
+          "Inter",
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "Segoe UI",
+          "Roboto",
+          "sans-serif",
+        ],
         mono: ["JetBrains Mono", "Menlo", "monospace"],
       },
     },

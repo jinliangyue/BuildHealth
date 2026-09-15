@@ -1,20 +1,17 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Sidebar from "./components/layout/Sidebar";
+import SimulatedBanner from "./components/layout/SimulatedBanner";
 import Dashboard from "./pages/Dashboard";
 import Buildings from "./pages/Buildings";
 import BuildingDetail from "./pages/BuildingDetail";
 import Monitoring from "./pages/Monitoring";
 import RiskHealth from "./pages/RiskHealth";
-import Settings from "./pages/Settings";
+import DataSettings from "./pages/DataSettings";
 
-/**
- * BuildHealth Frontend App
- * Phase 0 Skeleton - 占位页面 + 路由骨架
- */
-function App() {
+export default function App() {
   return (
     <BrowserRouter>
-      <div className="flex h-full">
+      <div className="flex h-full bg-engineering-bg">
         <Sidebar />
         <main className="flex-1 overflow-auto p-6">
           <Routes>
@@ -23,12 +20,12 @@ function App() {
             <Route path="/buildings/:id" element={<BuildingDetail />} />
             <Route path="/monitoring" element={<Monitoring />} />
             <Route path="/risk-health" element={<RiskHealth />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route path="/data" element={<DataSettings />} />
+            <Route path="/settings" element={<DataSettings />} />
           </Routes>
         </main>
+        <SimulatedBanner />
       </div>
     </BrowserRouter>
   );
 }
-
-export default App;

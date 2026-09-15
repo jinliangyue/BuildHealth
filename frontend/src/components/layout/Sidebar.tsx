@@ -1,47 +1,46 @@
 import { NavLink } from "react-router-dom";
 
-/**
- * 侧边栏导航 · Phase 0 占位
- */
-export default function Sidebar() {
-  const navItems = [
-    { to: "/", label: "Dashboard", icon: "▦" },
-    { to: "/buildings", label: "Buildings", icon: "▤" },
-    { to: "/monitoring", label: "Monitoring", icon: "▣" },
-    { to: "/risk-health", label: "Risk & Health", icon: "◆" },
-    { to: "/settings", label: "Settings", icon: "◇" },
-  ];
+const NAV = [
+  { to: "/", label: "Dashboard", end: true },
+  { to: "/buildings", label: "Buildings", end: false },
+  { to: "/monitoring", label: "Monitoring", end: false },
+  { to: "/risk-health", label: "Risk & Health", end: false },
+  { to: "/data", label: "Data / Settings", end: false },
+];
 
+export default function Sidebar() {
   return (
-    <aside className="w-56 bg-engineering-surface border-r border-engineering-border flex flex-col">
-      <div className="px-4 py-5 border-b border-engineering-border">
-        <h1 className="text-lg font-bold">BuildHealth</h1>
-        <p className="text-xs text-engineering-muted mt-1">
-          既有建筑健康监测
-        </p>
+    <aside className="w-60 bg-white border-r border-slate-200 flex flex-col h-full">
+      <div className="px-5 py-4 border-b border-slate-200">
+        <div className="text-base font-bold text-slate-900">BuildHealth</div>
+        <div className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+          Existing Building Health Monitoring
+          <br />& Intelligent Retrofit Decision Platform
+        </div>
       </div>
       <nav className="flex-1 py-3">
-        {navItems.map((item) => (
+        {NAV.map((n) => (
           <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.to === "/"}
+            key={n.to}
+            to={n.to}
+            end={n.end}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-2 text-sm ${
+              `block px-5 py-2 text-sm border-l-2 ${
                 isActive
-                  ? "bg-engineering-bg text-white border-l-2 border-risk-normal"
-                  : "text-engineering-muted hover:text-engineering-text hover:bg-engineering-bg"
+                  ? "bg-blue-50 text-blue-700 border-blue-600 font-medium"
+                  : "text-slate-600 border-transparent hover:bg-slate-50 hover:text-slate-900"
               }`
             }
           >
-            <span className="text-base">{item.icon}</span>
-            <span>{item.label}</span>
+            {n.label}
           </NavLink>
         ))}
       </nav>
-      <div className="px-4 py-3 border-t border-engineering-border text-xs text-engineering-muted">
-        <p>Phase 0 · v0.0.1</p>
-        <p className="mt-1 text-amber-500">Simulated Data</p>
+      <div className="px-5 py-3 border-t border-slate-200 text-[11px] text-slate-500 leading-relaxed">
+        <div className="font-medium text-slate-700">Phase 2 · v0.2.0</div>
+        <div className="mt-1 px-1.5 py-0.5 bg-amber-50 border border-amber-200 rounded inline-block text-amber-700">
+          Simulated Data
+        </div>
       </div>
     </aside>
   );
