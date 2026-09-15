@@ -6,6 +6,7 @@
 import { useMemo } from "react";
 import ReactECharts from "echarts-for-react";
 import type { EChartsOption } from "echarts";
+import "./echarts";
 
 export interface TrendPoint {
   ts: string;

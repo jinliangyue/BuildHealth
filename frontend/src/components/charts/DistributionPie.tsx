@@ -9,6 +9,7 @@ import {
   RISK_LEVEL_LABELS,
   type RiskDistribution,
 } from "../../types/api";
+import "./echarts";
 
 interface Props {
   distribution: RiskDistribution;

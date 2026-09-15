@@ -120,16 +120,21 @@ def compute_health_assessment(
 
 
 def classify_risk_for_building(
-    bhi: float, anomalies: List[Dict]
+    bhi: float, anomalies: List[Dict], building_id: Optional[int] = None
 ) -> Dict:
     """根据 BHI + 异常数计算风险等级。"""
     n_high = sum(1 for a in anomalies if a["severity"] == "high")
     n_medium = sum(1 for a in anomalies if a["severity"] == "medium")
     n_low = sum(1 for a in anomalies if a["severity"] == "low")
     cls = rk.classify_risk(
-        bhi=bhi, n_high=n_high, n_medium=n_medium, n_low=n_low
+        bhi=bhi,
+        building_id=building_id if building_id is not None else 0,
+        n_high=n_high,
+        n_medium=n_medium,
+        n_low=n_low,
     )
     return {
+        "building_id": cls.building_id,
         "risk_level": cls.risk_level,
         "bhi": cls.bhi,
         "explanation": cls.explanation,
@@ -137,6 +142,37 @@ def classify_risk_for_building(
         "n_medium": n_medium,
         "n_low": n_low,
     }
+
+
+def get_buildings_overview(session: Session) -> List[Dict]:
+    """
+    Batch API: 一栋建筑只访问一次完整链路（health + risk + alert count）。
+    单建筑内部异常被隔离，不会让整个 endpoint 失败。
+    """
+    buildings = session.query(m.Building).order_by(m.Building.id).all()
+    items: List[Dict] = []
+    for b in buildings:
+        item = {"building": b, "health": None, "risk": None, "active_alert_count": 0}
+        try:
+            latest = (
+                session.query(m.HealthAssessment)
+                .filter(m.HealthAssessment.building_id == b.id)
+                .order_by(m.HealthAssessment.created_at.desc())
+                .first()
+            )
+            if latest:
+                item["health"] = latest
+                anomalies = run_anomaly_detection(session, b.id)
+                cls = classify_risk_for_building(latest.score, anomalies, building_id=b.id)
+                item["risk"] = cls
+                item["active_alert_count"] = sum(
+                    1 for a in anomalies if a.get("severity") in ("high", "medium")
+                )
+        except Exception:
+            # 单建筑异常不影响整个列表
+            session.rollback()
+        items.append(item)
+    return items
 
 
 def get_dashboard_summary(session: Session) -> Dict:

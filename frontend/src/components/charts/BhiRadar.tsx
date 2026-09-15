@@ -10,6 +10,7 @@ import {
   DIMENSION_LABELS,
   type DimensionInfo,
 } from "../../types/api";
+import "./echarts";
 
 interface Props {
   scores: Record<DimensionInfo["key"], number>;

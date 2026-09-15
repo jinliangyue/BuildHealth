@@ -1,7 +1,9 @@
 /**
  * Dashboard · 全平台总览
- * 全部数据来自 GET /api/dashboard/summary
+ * - Auto refresh (30s, 可关)
+ * - Recent Alerts 点击跳转对应 Building Detail
  */
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import TopBar from "../components/layout/TopBar";
 import { Card, KPITile, LoadingState, ErrorState, Badge } from "../components/ui/StateViews";
@@ -15,8 +17,51 @@ import {
   SEVERITY_COLORS,
 } from "../types/api";
 
+const AUTO_REFRESH_MS = 30_000;
+
 export default function Dashboard() {
   const { data, loading, error, refetch } = useApi(() => dashboardApi.summary());
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // 记录最近一次成功刷新时间
+  useEffect(() => {
+    if (data) setLastUpdated(new Date());
+  }, [data]);
+
+  // Auto refresh：页面可见 + autoRefresh=true 才跑
+  useEffect(() => {
+    function clear() {
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    }
+    clear();
+    if (!autoRefresh) return;
+
+    function start() {
+      if (document.hidden) return;
+      intervalRef.current = setInterval(() => {
+        if (!document.hidden) {
+          void refetch();
+        }
+      }, AUTO_REFRESH_MS);
+    }
+    start();
+
+    const visibilityHandler = () => {
+      clear();
+      start();
+    };
+    document.addEventListener("visibilitychange", visibilityHandler);
+
+    return () => {
+      clear();
+      document.removeEventListener("visibilitychange", visibilityHandler);
+    };
+  }, [autoRefresh, refetch]);
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -24,17 +69,35 @@ export default function Dashboard() {
         title="Platform Overview"
         subtitle="Real-time aggregate metrics across all monitored buildings"
         right={
-          <button
-            onClick={refetch}
-            className="text-xs px-3 py-1.5 border border-slate-300 rounded text-slate-600 hover:bg-slate-50"
-          >
-            Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-1.5 text-xs text-slate-600">
+              <input
+                type="checkbox"
+                checked={autoRefresh}
+                onChange={(e) => setAutoRefresh(e.target.checked)}
+                className="rounded border-slate-300"
+              />
+              Auto Refresh
+            </label>
+            <button
+              onClick={() => void refetch()}
+              className="text-xs px-3 py-1.5 border border-slate-300 rounded text-slate-600 hover:bg-slate-50"
+            >
+              Refresh
+            </button>
+          </div>
         }
       />
 
-      {loading && <LoadingState label="Loading dashboard data..." />}
-      {error && <ErrorState message={error} onRetry={refetch} />}
+      {lastUpdated && (
+        <div className="text-[11px] text-slate-400 -mt-3 mb-3">
+          Last updated: {lastUpdated.toLocaleTimeString("zh-CN")} ·{" "}
+          {autoRefresh ? `auto every ${AUTO_REFRESH_MS / 1000}s` : "manual"}
+        </div>
+      )}
+
+      {loading && !data && <LoadingState label="Loading dashboard data..." />}
+      {error && <ErrorState message={error} onRetry={() => void refetch()} />}
       {data && (
         <div className="space-y-5">
           {/* KPI 行 */}
@@ -134,10 +197,10 @@ export default function Dashboard() {
             </Card>
           </div>
 
-          {/* Recent Alerts */}
+          {/* Recent Alerts · 点击跳转 Building Detail */}
           <Card
             title="Recent Alerts"
-            subtitle="Latest 10 active prototype anomalies"
+            subtitle="Latest 10 active prototype anomalies · click row to view building"
           >
             {data.recent_alerts.length === 0 ? (
               <div className="text-sm text-slate-500 py-6 text-center">
@@ -158,17 +221,20 @@ export default function Dashboard() {
                 </thead>
                 <tbody>
                   {data.recent_alerts.map((a) => (
-                    <tr key={a.id}>
+                    <tr
+                      key={a.id}
+                      onClick={() =>
+                        (window.location.href = `/buildings/${a.building_id}#alert-${a.id}`)
+                      }
+                      className="cursor-pointer"
+                    >
                       <td className="font-mono text-xs">
                         {formatTimestamp(a.timestamp)}
                       </td>
                       <td>
-                        <Link
-                          to={`/buildings/${a.building_id}`}
-                          className="text-blue-700 hover:underline"
-                        >
+                        <span className="text-blue-700 hover:underline">
                           #{a.building_id}
-                        </Link>
+                        </span>
                       </td>
                       <td className="font-mono text-xs">{a.metric}</td>
                       <td className="text-right font-mono">

@@ -142,3 +142,18 @@ class DashboardSummary(BaseModel):
 # ===================== API Error =====================
 class APIError(BaseModel):
     detail: str
+
+
+# ===================== Buildings Overview (Batch) =====================
+class BuildingOverviewItem(BaseModel):
+    building: BuildingRead
+    health: Optional[HealthAssessmentRead] = None
+    risk: Optional[RiskClassificationRead] = None
+    active_alert_count: int = 0
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BuildingsOverviewResponse(BaseModel):
+    total: int
+    items: List[BuildingOverviewItem]
