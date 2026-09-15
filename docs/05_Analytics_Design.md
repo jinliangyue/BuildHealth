@@ -279,26 +279,40 @@ def classify_risk(bhi: float, anomaly_count_high: int) -> dict:
     return {"risk_level": level, "top_reason": reason}
 ```
 
-## 6. 测试要求
+## 6. 测试要求（Phase 1 实际结果）
 
-每个引擎至少 5 个 unit test：
-
-- Trend Engine：稳态 / 上升趋势 / 下降趋势 / 空数据 / 边界值
-- Anomaly Engine：阈值触发 / 变化率触发 / Z-score 触发 / 无异常 / 多异常
-- Health Engine：满分 100 / 零分 0 / 边界 75 / 权重异常（断言失败） / 版本号缺失
-- Risk Engine：4 个分档全覆盖 + 异常计数影响
+- Anomaly Engine：14 个测试（threshold 4 / rate_of_change 4 / zscore 4 / combined 2）
+- Health Engine：17 个测试（BHI 7 + 5 维度派生 10）
+- Risk Engine：13 个测试（11 个边界值 + 越界 + 覆盖规则）
 
 ## 7. 当前状态
 
-**Phase 0** — 设计完成
+**Phase 1 — 完成**
 
-- ✅ 4 个引擎职责与边界已设计
-- ✅ 关键算法伪代码已编写
-- ✅ 异常结果结构已强制
-- ⏳ 实际代码未实现（analytics/ 目录为空）
+- ✅ `backend/app/analytics/` 实现 4 个模块：
+  - `config.py` — Prototype Detection Parameters 集中配置
+  - `anomaly.py` — 3 种检测方法 + Anomaly dataclass
+  - `health.py` — BHI 计算 + 5 维度评分派生
+  - `risk.py` — 4 档分级 + HIGH 异常覆盖
+- ✅ 异常结果强制 9 字段（sensor_id / metric / timestamp / current_value / baseline_value / change / detection_method / severity / explanation）
+- ✅ 所有异常 explanation 基于真实数值（不允许模板替换）
+- ✅ 配置集中在 `config.py`，便于版本化与文档引用
+
+**实际运行结果（模拟数据 · 1,350 条记录）**：
+
+| Building | Total Alerts | HIGH | MEDIUM |
+|---|---|---|---|
+| A Healthy Tower | 0 | 0 | 0 |
+| B Attention Plaza | 28 | 0 | 28 |
+| C Abnormal Complex | 159 | 86 | 73 |
+
+触发说明：
+- Building A 噪声极低（stdev<0.02），无任何异常触发
+- Building B tilt 缓慢上升（0.004/天），未超阈值但 z-score 触发 MEDIUM
+- Building C crack_width 后 14 天 spike event，从 0.20 增长至 0.99mm，触发大量 threshold HIGH
 
 ---
 
-**文档版本**：v0.1 · Phase 0 起草
+**文档版本**：v0.2 · Phase 1 实施
 **最后更新**：2026-09-15
-**状态**：Designed but not implemented
+**状态**：Implemented & tested

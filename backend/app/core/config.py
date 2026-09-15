@@ -44,6 +44,10 @@ SENSOR_THRESHOLDS = {
     },
 }
 
-# 数据库路径
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
+# 数据库路径（绝对路径 · 避免 cwd 变化导致无法定位）
+_BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+DATA_DIR = os.path.join(os.path.dirname(_BACKEND_DIR), "data")
 DATABASE_URL = f"sqlite:///{os.path.join(DATA_DIR, 'buildhealth.db')}"
+
+# 确保 data 目录存在
+os.makedirs(DATA_DIR, exist_ok=True)

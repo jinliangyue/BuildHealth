@@ -25,88 +25,48 @@ BHI = Structural Safety      × 0.40
 - 每个维度输入值范围 [0, 100]
 - 输出 BHI 范围 [0, 100]
 
-## 3. 维度定义（V1）
+## 3. 维度定义（V1 · Phase 1 已实现）
+
+实际代码位于 `backend/app/analytics/health.py`。
 
 ### 3.1 Structural Safety（结构安全）· 40%
 
-**V1 输入来源**（设计）：
+**实际算法**（`score_structural_from_anomalies`）：
 
-- crack_width 监测数据 + 阈值异常
-- tilt 监测数据 + 阈值异常
-- 历史 HealthAssessment 趋势（最近 3 次）
-
-**评分逻辑**（设计稿）：
-
-```python
-def score_structural(records: list[dict], anomalies: list[Anomaly]) -> float:
-    base = 100.0
-    for a in anomalies:
-        if a.method == "threshold" and a.severity == Severity.HIGH:
-            base -= 15
-        elif a.method == "threshold" and a.severity == Severity.MEDIUM:
-            base -= 8
-        elif a.method == "rate_of_change" and a.severity == Severity.HIGH:
-            base -= 10
-    return max(0.0, min(100.0, base))
-```
+- 基础分 100
+- 按异常严重度对数扣分：`100 - log1p(n_high)*18 - log1p(n_medium)*6 - log1p(n_low)*2`
+- 优势：异常数量越多边际扣分越小，避免一次事件拖垮整栋
 
 ### 3.2 Facility Condition（设施状况）· 20%
 
-**V1 简化逻辑**：基于建筑年龄 + 维护假设
+**实际算法**（`score_facility_from_age`）：
 
-```python
-def score_facility(building: Building) -> float:
-    age = 2026 - building.built_year
-    # 假设：50 年以上 60 分，30 年 80 分，新建 95 分
-    score = 95 - (age * 0.7)
-    return max(0.0, min(100.0, score))
-```
+- 基础分 95（新建）
+- 设计年限内线性下降到 75：`score = 95 - 20 * (current_age / design_life)`
+- 超出设计年限加速下降：`score = max(30, 75 - (over * 100))`
 
 ### 3.3 Environmental Quality（环境质量）· 15%
 
-**V1 输入**：temperature / humidity 稳定性
+**实际算法**（`score_environment_from_series`）：
 
-```python
-def score_environment(temp_records: list, hum_records: list) -> float:
-    temp_std = pd.Series([r["value"] for r in temp_records]).std()
-    hum_std = pd.Series([r["value"] for r in hum_records]).std()
-
-    # 温度标准差 < 5 ℃ 满分；> 15 ℃ 零分
-    temp_score = max(0, 100 - temp_std * 6.7)
-    # 湿度标准差 < 10 % 满分；> 30 % 零分
-    hum_score = max(0, 100 - hum_std * 3.3)
-
-    return (temp_score + hum_score) / 2
-```
+- 温度得分：`max(0, 100 - (stdev - 3) * 8)`（stdev<3 ℃ 满分）
+- 湿度得分：`max(0, 100 - (stdev - 5) * 5)`（stdev<5 % 满分）
+- 取两者平均
 
 ### 3.4 Energy Performance（能耗表现）· 10%
 
-**V1 输入**：electricity 用电模式稳定性（峰谷差）
+**实际算法**（`score_energy_from_series`）：
 
-```python
-def score_energy(elec_records: list) -> float:
-    values = pd.Series([r["value"] for r in elec_records])
-    cv = values.std() / values.mean() if values.mean() != 0 else 0  # 变异系数
-
-    # CV < 0.2 满分；> 0.8 零分
-    score = max(0, 100 - (cv - 0.2) * 166.67)
-    return score
-```
+- 用电变异系数 CV = stdev / mean
+- CV < 0.15 满分；CV > 0.6 零分：`max(0, 100 - (CV - 0.15) * 220)`
 
 ### 3.5 Fire Safety（消防安全）· 15%
 
-**V1 占位逻辑**：静态评分
+**实际算法**（`score_fire_placeholder` · V1 占位）：
 
-```python
-def score_fire(building: Building) -> float:
-    # V1 未接入真实消防监测，使用建筑年龄 + 楼层数粗估
-    base = 85.0
-    if building.total_floors > 20:
-        base -= 5
-    if (2026 - building.built_year) > 30:
-        base -= 5
-    return max(0.0, min(100.0, base))
-```
+- 基础分 90
+- 楼层 ≥20 扣 8；≥10 扣 4
+- 年龄 >30 扣 5；>15 扣 2
 
 ## 4. 版本化机制
 
@@ -154,15 +114,23 @@ V1 设计：
 
 ## 7. 当前状态
 
-**Phase 0** — 设计完成
+**Phase 1 — 完成**
 
-- ✅ 5 维度评分逻辑已设计
-- ✅ 权重版本化机制已规划
-- ✅ 强制声明位置已明确
-- ⏳ 实际代码未实现
+- ✅ 5 维度评分逻辑已实现并通过 16 个 unit test
+- ✅ 权重版本化（calculation_version=BHI-v1.0）已生效
+- ✅ 范围校验（非 0-100 输入抛 HealthInputError）
+- ✅ 强制声明：每次 explanation 含 "prototype assessment suggests further professional inspection is recommended"
+
+**实际运行结果（模拟数据）**：
+
+| Building | BHI | structural | facility | environment | energy | fire |
+|---|---|---|---|---|---|---|
+| A Healthy | 96.02 | 100.0 | 91.6 | 100.0 | 100.0 | 90.0 |
+| B Attention | 87.44 | 82.6 | 82.6 | 100.0 | 100.0 | 88.0 |
+| C Abnormal | 54.27 | 0.0 | 82.6 | 100.0 | 100.0 | 85.0 |
 
 ---
 
-**文档版本**：v0.1 · Phase 0 起草
+**文档版本**：v0.2 · Phase 1 实施
 **最后更新**：2026-09-15
-**状态**：Designed but not implemented
+**状态**：Implemented & tested

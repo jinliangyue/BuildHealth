@@ -226,107 +226,40 @@ Building (创建一次)
 - 3 条 HealthAssessment
 - 3 条 RiskAlert
 
-## 6. SQLAlchemy 模型示例（设计稿）
+## 6. SQLAlchemy 模型（Phase 1 已实现）
 
-```python
-# backend/app/db/models.py
-from sqlalchemy import Column, Integer, String, Float, DateTime, Date, Boolean, ForeignKey, Index
-from sqlalchemy.orm import relationship
-from datetime import datetime
-from app.db.base import Base
+实际代码位于 `backend/app/db/models.py`。完整模型含 6 张表 + 索引 + 级联关系。
 
-class Building(Base):
-    __tablename__ = "buildings"
-    id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False)
-    address = Column(String, nullable=False)
-    city = Column(String, nullable=False)
-    building_type = Column(String, nullable=False)
-    built_year = Column(Integer, nullable=False)
-    total_floors = Column(Integer, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+**关键设计要点（实际实现）**：
 
-    components = relationship("Component", back_populates="building", cascade="all, delete-orphan")
+- 所有外键 `ondelete="CASCADE"`（删除建筑 → 级联清理构件 / 传感器 / 记录 / 评估）
+- `Sensor.component_id` 用 `ondelete="SET NULL"`（删除构件 → 传感器保留但脱钩）
+- `MonitoringRecord` append-only（无 update 字段）
+- `HealthAssessment.calculation_version` 替代原设计的 `bhi_version` 字段名
+- `RiskAlert` 与异常检测结果一一对应（detection_method / severity / change / explanation）
 
-class Component(Base):
-    __tablename__ = "components"
-    id = Column(Integer, primary_key=True)
-    building_id = Column(Integer, ForeignKey("buildings.id"), nullable=False)
-    name = Column(String, nullable=False)
-    component_type = Column(String, nullable=False)
-    location = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+**索引（实际）**：
 
-    building = relationship("Building", back_populates="components")
-    sensors = relationship("Sensor", back_populates="component", cascade="all, delete-orphan")
-
-class Sensor(Base):
-    __tablename__ = "sensors"
-    id = Column(Integer, primary_key=True)
-    component_id = Column(Integer, ForeignKey("components.id"), nullable=False)
-    metric = Column(String, nullable=False)
-    unit = Column(String, nullable=False)
-    install_date = Column(Date, nullable=False)
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    component = relationship("Component", back_populates="sensors")
-    records = relationship("MonitoringRecord", back_populates="sensor", cascade="all, delete-orphan")
-
-class MonitoringRecord(Base):
-    __tablename__ = "monitoring_records"
-    id = Column(Integer, primary_key=True)
-    sensor_id = Column(Integer, ForeignKey("sensors.id"), nullable=False)
-    ts = Column(DateTime, nullable=False)
-    value = Column(Float, nullable=False)
-    is_simulated = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    sensor = relationship("Sensor", back_populates="records")
-
-    __table_args__ = (Index("idx_monitoring_sensor_ts", "sensor_id", "ts"),)
-
-class HealthAssessment(Base):
-    __tablename__ = "health_assessments"
-    id = Column(Integer, primary_key=True)
-    building_id = Column(Integer, ForeignKey("buildings.id"), nullable=False)
-    assessment_date = Column(Date, nullable=False)
-    structural_safety = Column(Float, nullable=False)
-    facility_condition = Column(Float, nullable=False)
-    environmental_quality = Column(Float, nullable=False)
-    energy_performance = Column(Float, nullable=False)
-    fire_safety = Column(Float, nullable=False)
-    bhi = Column(Float, nullable=False)
-    bhi_version = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    __table_args__ = (Index("idx_health_building_date", "building_id", "assessment_date"),)
-
-class RiskAlert(Base):
-    __tablename__ = "risk_alerts"
-    id = Column(Integer, primary_key=True)
-    building_id = Column(Integer, ForeignKey("buildings.id"), nullable=False)
-    alert_date = Column(Date, nullable=False)
-    risk_level = Column(String, nullable=False)
-    bhi_at_alert = Column(Float, nullable=False)
-    top_reason = Column(String, nullable=True)
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-```
+- `idx_monitoring_sensor_ts (sensor_id, timestamp)`
+- `idx_monitoring_timestamp (timestamp)`
+- `idx_health_building_date (building_id, created_at)`
+- `idx_risk_building` · `idx_risk_status` · `idx_risk_severity` · `idx_risk_timestamp`
+- `idx_sensor_building` · `idx_sensor_component` · `idx_sensor_type`
+- `idx_component_building`
+- `idx_building_type`
 
 ## 7. 当前状态
 
-**Phase 0** — 数据模型设计完成
+**Phase 1 — 完成**
 
-- ✅ 6 张表结构已设计
-- ✅ 索引策略已规划
-- ✅ 关系与级联已说明
-- ⏳ SQLAlchemy 模型未实际创建（仅本文档示例代码）
-- ⏳ 数据库未实际生成
+- ✅ 6 张表 SQLAlchemy ORM 模型已实现并通过测试
+- ✅ 索引策略已落地
+- ✅ 关系与级联已生效
+- ✅ SQLite 数据库自动初始化（`data/buildhealth.db`）
+- ✅ 模拟数据已生成（3 建筑 × 5 构件 × 5 传感器 × 90 条记录 = 1,350 条）
 
 ---
 
-**文档版本**：v0.1 · Phase 0 起草
+**文档版本**：v0.2 · Phase 1 实施
 **最后更新**：2026-09-15
-**状态**：Designed but not implemented
+**状态**：Implemented & tested

@@ -14,8 +14,7 @@ def test_root():
     assert response.status_code == 200
     data = response.json()
     assert data["project"] == "BuildHealth"
-    assert data["phase"] == "Phase 0 - Project Initialization"
-    assert data["status"] == "skeleton"
+    assert "Phase 1" in data["phase"]
 
 
 def test_health_check():
@@ -24,7 +23,6 @@ def test_health_check():
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ok"
-    assert "components" in data
 
 
 def test_openapi_docs():

@@ -101,15 +101,23 @@ def classify_risk(bhi: float, anomalies: list[Anomaly]) -> dict:
 
 ## 6. 当前状态
 
-**Phase 0** — 设计完成
+**Phase 1 — 完成**
 
-- ✅ 4 档分级 + 算法已设计
-- ✅ UI 颜色规范已规划
-- ✅ 强约束清单已编写
-- ⏳ 实际代码未实现
+- ✅ 4 档分级 + 算法已实现并通过 11 个边界值测试（含 100/90/89.99/89/75/74.99/74/60/59.99/59/0）
+- ✅ HIGH 异常覆盖规则（即使 BHI=Normal，存在 HIGH 异常也升级到 Attention）
+- ✅ 越界抛 ValueError（不静默接受）
+- ✅ explanation 必含 "Prototype Risk Classification" + "further professional inspection is recommended"
+
+**实际运行结果（模拟数据）**：
+
+| Building | BHI | Risk Level | n_high | n_medium |
+|---|---|---|---|---|
+| A Healthy | 96.02 | Normal | 0 | 0 |
+| B Attention | 87.44 | Attention | 0 | 28 |
+| C Abnormal | 54.27 | HighRisk | 86 | 73 |
 
 ---
 
-**文档版本**：v0.1 · Phase 0 起草
+**文档版本**：v0.2 · Phase 1 实施
 **最后更新**：2026-09-15
-**状态**：Designed but not implemented
+**状态**：Implemented & tested

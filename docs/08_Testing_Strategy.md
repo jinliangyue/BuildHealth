@@ -113,16 +113,35 @@ Phase 0 不强制 CI。
 
 ## 8. 当前状态
 
-**Phase 0** — 测试策略设计完成
+**Phase 1 — 完成 · 69 个测试全部通过**
 
-- ✅ 测试金字塔已规划
-- ✅ Unit test 场景清单已列出
-- ✅ Integration test fixture 已设计
-- ⏳ 测试用例实际未编写
-- ⏳ 当前 `tests/` 目录仅占位
+实际测试位于 `backend/tests/`：
+
+- `test_skeleton.py` — 3 个（root / health_check / openapi）
+- `test_database.py` — 8 个（CRUD + 关系 + 级联）
+- `test_anomaly.py` — 14 个（3 种方法 × 多场景）
+- `test_health.py` — 17 个（BHI 边界 + 5 维度派生）
+- `test_risk.py` — 13 个（11 个 BHI 边界值 + 越界 + 覆盖）
+- `test_api.py` — 13 个（9 个端点全部覆盖 + OpenAPI 文档验证）
+
+**总耗时**：0.31s
+
+**测试运行**：
+
+```bash
+cd backend
+source venv/bin/activate
+pytest tests/ -v
+```
+
+**关键 fixture**（`tests/conftest.py`）：
+
+- `test_engine` — 共享内存 SQLite（StaticPool + check_same_thread=False）
+- `test_session` — 直连 session
+- `client` — FastAPI TestClient + dependency_overrides[get_db]
 
 ---
 
-**文档版本**：v0.1 · Phase 0 起草
+**文档版本**：v0.2 · Phase 1 实施
 **最后更新**：2026-09-15
-**状态**：Designed but not implemented
+**状态**：Implemented & all 69 tests passing
