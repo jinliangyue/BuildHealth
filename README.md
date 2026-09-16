@@ -54,7 +54,7 @@ SQLAlchemy ORM
     ↓
 Analytics Engine (V1: anomaly/health/risk · V2: priority/recommendation_rules)
     ↓
-FastAPI (15 个业务端点 + 2 health)
+FastAPI (16 个业务端点 + 2 health + 1 只读参数端点)
     ↓
     ├── V1/V2 端点 (deterministic engineering data)
     └── V3 AI 端点 (Mock / OpenAI-compatible provider, explanation layer)
@@ -107,6 +107,11 @@ React + TypeScript + ECharts
 
 全部参数集中在 `backend/app/analytics/config.py`，版本化并在文档中引用。
 这些是 **Prototype Design Parameters**，不是国家或行业标准。
+
+只读端点 `GET /api/engineering-parameters` 公开这组参数
+（各层 calculation_version、BHI 权重、风险档位、改造优先级档位与权重、
+异常检测阈值）与 prototype 声明。前端参数页从该端点读取，本地常量仅作
+离线 fallback。档位表由引擎行为测试锁定，改一边不改另一边会直接失败。
 
 ### 异常检测（3 种方法并行）
 
@@ -262,6 +267,11 @@ Vite 已配置 `/api` proxy 自动转发到 `http://localhost:8000`。
 - `22_Overnight_Engineering_Sprint.md` · 工程质量审计与修复记录
 - `23_Project_Demo_Guide.md` · **演示脚本 · 30 秒 / 1 分钟 / 3 分钟版本 + 面试问答要点**
 
+### 性能与作品集（Sprint 2）
+- `24_Overnight_Sprint_2.md` · 性能/数据访问审计 + N+1 批量优化 + 追溯性与安全审计记录
+- `25_Portfolio_English.md` · **英文作品集材料（国际工程咨询 / TIC / 工程数字化方向）**
+- `26_Interview_Technical_Deep_Dive.md` · **17 个技术面试问答：实现 · 理由 · 局限 · 改进**
+
 ## 重要声明 (Engineering Disclaimer)
 
 - **数据来源**: 全部为 `Simulated Data`（前端右下角常驻水印）
@@ -338,14 +348,15 @@ Vite 已配置 `/api` proxy 自动转发到 `http://localhost:8000`。
 | POST `/api/ai/buildings/{id}/summary` | 200 | 503 + body.detail.provider_error=config_error |
 | POST `/api/ai/buildings/{id}/ask` | 200 | 503 |
 
-**测试统计 (工程强化后 · 2026-09-16):**
-- Backend: **376 tests passed** (V1 76 + V2 123 + V3 79 + V3.1 43 + V3.2 50 + 工程一致性 5)
-- Frontend: **92 tests passed** (V1 30 + V2 20 + V3 10 + V3.1 5 + V3.2 13 + 工程参数/流程 14)
-- Engineering Redlines: ~30 V1 + 25+ V3 + 11 V3.2 phrases 强制扫描
-- 前端/后端参数一致性: 5 tests 锁定显示镜像与算法引擎不漂移
+**测试统计 (Sprint 2 后 · 2026-09-17):**
+- Backend: **401 tests passed** (V1/V2/V3/V3.1/V3.2 + 聚合等价性 12 + 参数端点 11 + mock 闸门 2)
+- Frontend: **97 tests passed** (15 files)
+- Engineering Redlines: 43 条禁词（含 11 条 RAG 专项）强制扫描，两个 provider 都走运行时闸门
+- 跨端参数一致性: 后端测试用 `classify_risk` / `map_priority_level` 行为探针对比前端镜像
+- 聚合查询数不随建筑数增长: 2 tests（dashboard 7 · overview 4，与建筑数无关）
 - Frontend build: ✓ PASS (1351 KB bundle · 441 KB gzip · 714 modules)
 - TypeScript: 0 errors
-- API smoke test: ✓ 全部 14 端点 200 (含 knowledge_evidence 验证)
+- API smoke test: ✓ 全部 19 端点 200
 - **No secrets committed** (verified via grep + git diff)
 
 ### 一键验证
