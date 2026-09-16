@@ -253,12 +253,13 @@ Vite 已配置 `/api` proxy 自动转发到 `http://localhost:8000`。
 | POST `/api/ai/buildings/{id}/summary` | 200 | 503 + body.detail.provider_error=config_error |
 | POST `/api/ai/buildings/{id}/ask` | 200 | 503 |
 
-**测试统计:**
-- Backend: **321 tests passed** (V1 76 + V2 123 + V3 79 + V3.1 43)
-- Frontend: **65 tests passed** (V1 30 + V2 20 + V3 10 + V3.1 5)
-- Engineering Redlines: ~30 V1 + 25+ V3 phrases 强制扫描
-- Frontend build: ✓ PASS (1349 KB bundle · 441 KB gzip)
+**测试统计 (Phase 6B 最终验收 · 2026-09-16):**
+- Backend: **371 tests passed** (V1 76 + V2 123 + V3 79 + V3.1 43 + V3.2 50)
+- Frontend: **78 tests passed** (V1 30 + V2 20 + V3 10 + V3.1 5 + V3.2 13)
+- Engineering Redlines: ~30 V1 + 25+ V3 + 11 V3.2 phrases 强制扫描
+- Frontend build: ✓ PASS (1351 KB bundle · 441 KB gzip · 714 modules)
 - TypeScript: 0 errors
+- API smoke test: ✓ 全部 14 端点 200 (含 knowledge_evidence 验证)
 - **No secrets committed** (verified via grep + git diff)
 
 ## License

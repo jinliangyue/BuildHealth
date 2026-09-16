@@ -56,7 +56,7 @@
 
 ---
 
-## 3. Frontend 测试 (65 total)
+## 3. Frontend 测试 (78 total)
 
 ### V1+V2+V3 保留 (60 tests)
 
@@ -68,7 +68,14 @@
 |---|---|---|
 | AIProviderStatus.test.tsx | 5 | Mock Mode / Live AI / Not Configured 3 mode + precedence + 未来 provider |
 
-**Frontend 总计: 65 tests**
+### V6B 新增 (13 tests · 1 新文件 + 1 扩展)
+
+| 文件 | 测试数 | 主题 |
+|---|---|---|
+| KnowledgeEvidenceList.test.tsx | 7 | 空态 / 渲染 / relevance 百分比 / 越界 clamp / 非权威提示语 / 多 chunk |
+| AIResponsePanel.test.tsx (扩展) | +6 | Knowledge Sources 分区 / 与 Evidence 分离 / 空态 / 旧后端缺字段兼容 |
+
+**Frontend 总计: 78 tests** (60 V1+V2+V3 + 5 V6A + 13 V6B)
 
 ---
 
@@ -272,6 +279,32 @@
 
 ---
 
-**文档版本**：v1.0 · Phase 6A + 6B
+## 10. Phase 6B 最终验收结果 (2026-09-16)
+
+| 项目 | 命令 | 结果 |
+|---|---|---|
+| Backend 全量 | `python -m pytest tests/ -q` | 371 passed |
+| Frontend 全量 | `npm test -- --run` | 12 files / 78 passed |
+| TypeScript | `tsc` (经 `npm run build`) | 0 errors |
+| Production build | `npm run build` | ✓ 714 modules · 1350.86 kB / 441.46 kB gzip · 2.33s |
+| API smoke test | uvicorn + curl | 全部 14 端点 200 |
+
+Phase 6B 新增测试合计: backend 50 + frontend 13 = 63.
+
+### 10.1 验收过程中修复的环境问题
+
+首次执行前端测试时 jsdom 无法加载 (`Class extends value undefined`，伴随
+circular dependency 警告，每次报错文件不同)。排查结论: `node_modules`
+安装不完整/不一致，与 Phase 6B 代码无关。
+
+修复方式: `npm ci` (严格按 `package-lock.json` 重建，未升级依赖、未修改
+锁文件)。重建后 jsdom 正常加载，前端 78 tests 全绿。
+
+同时确认该状态下 build 耗时从 5m58s 恢复到 2.33s，产物 hash 前后一致
+(`index-0qCZOQxZ.js`)，说明先前在资源紧张时产出的 build 结果同样有效。
+
+---
+
+**文档版本**：v1.1 · Phase 6A + 6B
 **最后更新**：2026-09-16
-**状态**：Implemented & tested
+**状态**：Implemented & tested · 验收通过
