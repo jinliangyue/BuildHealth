@@ -270,7 +270,10 @@ Vite 已配置 `/api` proxy 自动转发到 `http://localhost:8000`。
 ### 性能与作品集（Sprint 2）
 - `24_Overnight_Sprint_2.md` · 性能/数据访问审计 + N+1 批量优化 + 追溯性与安全审计记录
 - `25_Portfolio_English.md` · **英文作品集材料（国际工程咨询 / TIC / 工程数字化方向）**
-- `26_Interview_Technical_Deep_Dive.md` · **17 个技术面试问答：实现 · 理由 · 局限 · 改进**
+- `26_Interview_Technical_Deep_Dive.md` · **18 个技术面试问答：实现 · 理由 · 局限 · 改进**
+
+### 最终优化（Sprint 3）
+- `27_Overnight_Sprint_3_Final.md` · 请求作用域计算复用 + 剩余 N+1 清理 + 等价性验证记录
 
 ## 重要声明 (Engineering Disclaimer)
 
@@ -348,12 +351,13 @@ Vite 已配置 `/api` proxy 自动转发到 `http://localhost:8000`。
 | POST `/api/ai/buildings/{id}/summary` | 200 | 503 + body.detail.provider_error=config_error |
 | POST `/api/ai/buildings/{id}/ask` | 200 | 503 |
 
-**测试统计 (Sprint 2 后 · 2026-09-17):**
-- Backend: **401 tests passed** (V1/V2/V3/V3.1/V3.2 + 聚合等价性 12 + 参数端点 11 + mock 闸门 2)
+**测试统计 (Sprint 3 封板 · 2026-09-17):**
+- Backend: **412 tests passed** (V1/V2/V3/V3.1/V3.2 + 聚合等价性 12 + 参数端点 11 + mock 闸门 2 + 请求作用域复用 11)
 - Frontend: **97 tests passed** (15 files)
 - Engineering Redlines: 43 条禁词（含 11 条 RAG 专项）强制扫描，两个 provider 都走运行时闸门
 - 跨端参数一致性: 后端测试用 `classify_risk` / `map_priority_level` 行为探针对比前端镜像
-- 聚合查询数不随建筑数增长: 2 tests（dashboard 7 · overview 4，与建筑数无关）
+- 查询数不随建筑数增长: dashboard 7 · overview 4 · retrofit overview 6（均有测试锁定）
+- 请求作用域复用: AI 链路异常检测由 2 次降为 1 次，等价性有测试证明
 - Frontend build: ✓ PASS (1351 KB bundle · 441 KB gzip · 714 modules)
 - TypeScript: 0 errors
 - API smoke test: ✓ 全部 19 端点 200

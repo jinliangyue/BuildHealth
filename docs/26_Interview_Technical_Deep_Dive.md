@@ -293,51 +293,119 @@ AI 层只读 `EngineeringContext`（由确定性算法产出），不参与任�
 ## 14. How would you scale the system?
 
 **当前实现**
-本轮刚做过一轮批量化：聚合接口从「逐建筑查询」改为固定次数的批量读取。
-实测 3 栋建筑下，`/api/dashboard/summary` 查询数 28 → 7，
-`/api/buildings/overview` 22 → 4，`/api/retrofit/overview` 64 → 13。
+做过两轮批量化。第一轮把聚合接口从「逐建筑查询」改为固定次数的批量读取；
+第二轮（Sprint 3）引入请求作用域分析复用并清掉剩余逐条查询。
+3 栋建筑实测：
+
+| 端点 | 起始 | 现在 |
+|---|---|---|
+| /api/dashboard/summary | 28 queries | 7 queries |
+| /api/buildings/overview | 22 queries | 4 queries |
+| /api/retrofit/overview | 64 queries | 6 queries |
+| AI context build | 16 queries / 2 次异常检测 | 7 queries / 1 次 |
+
 查询数不再随建筑数增长。
 
 **技术理由**
-原来的形态是典型的 N+1：循环里逐栋查最新评估（还查了两遍）、
-逐栋查传感器、逐指标查监测序列 —— 而且同一批序列被读了三遍。
-批量读取 + 内存聚合是低风险解法，API 契约完全不变。
+起始形态是典型 N+1：循环里逐栋查最新评估（还查了两遍）、逐栋查传感器、
+逐指标查监测序列，而且同一批序列被读三遍。批量读取 + 内存聚合是低风险解法，
+API 契约完全不变。
 
 **局限**
-耗时瓶颈已经转移：现在 92% 的响应时间是异常检测的 CPU 重算，
-查询只占很小一部分。所以继续优化查询收益有限。
-retrofit overview 仍有每栋 4 条查询，因为它的单建筑函数是公开接口。
+耗时瓶颈已经转移：92% 的响应时间是异常检测的 CPU 重算，查询只占很小一部分
+（批量序列读取约 3 ms）。所以继续压查询收益有限。
 
 **后续改进**
-三个方向：① 一次请求内只跑一遍异常检测（当前 dashboard 与 overview
-各自独立重算）；② 把告警结果持久化，避免每次重算历史；③ 建筑数上千时
-再考虑列式存储或预聚合表。本轮刻意不引入缓存系统。
+① 请求级共享（Sprint 3 已做）；② 把告警结果持久化，避免每次重算历史；
+③ 建筑数上千时再考虑预聚合表或列式存储。刻意不引入缓存系统。
 
 ---
 
 ## 15. Where is the current N+1 issue?
 
 **当前实现**
-主体已修复。剩余两处：
+已基本清完。剩下的不是 N+1，而是两类不同的成本：
 
-1. `retrofit_service.get_retrofit_overview` 每栋建筑仍有 4 条查询
-   （building / components / sensors / monitoring series）。
-   原因是 `generate_recommendations(session, building_id)` 是单建筑端点的
-   公开函数，要批量就得改它的签名或再加一轮可选入参。
-2. `/api/buildings/{id}/health` 等单建筑端点每次请求都重跑一遍异常检测，
-   与其他端点的计算不共享。
+1. 不同 endpoint 各自重算异常检测。`/api/dashboard/summary` 与
+   `/api/buildings/overview` 是两次独立请求，各自算一遍。
+   这不是单次请求内的重复，而是跨请求的重复。
+2. 单建筑端点（如 `/api/buildings/{id}/health`）每次请求重算一遍异常检测，
+   用于写入新的 HealthAssessment。
 
 **技术理由**
-修第 1 处会改动公开函数签名；修第 2 处需要引入请求级或进程级缓存，
-而本轮明确不引入缓存系统。两者都记录为技术债而不是硬做。
+第 1 类要在无缓存前提下消除，就得把两个 endpoint 合并或提升为共享的
+服务层，那会改变 API 形状；第 2 类是写路径的语义要求（重新计算才写入）。
+两者都记录为技术债而不是硬做。
 
 **局限**
-当前 3 栋建筑无实际影响；上千栋时第 2 处会成为主要问题。
+当前 3 栋建筑无实际影响；上千栋时第 1 类会成为主要问题。
 
 **后续改进**
-第 1 处：给 `generate_recommendations` 增加可选预加载入参（与本次
-`run_anomaly_detection` 同款做法，向后兼容）。
-第 2 处：在请求作用域内传递一次算好的异常结果。
+第 1 类：把「取一次分析」提升为请求层的显式步骤，多个视图共享；
+第 2 类：保持现状（写路径本就该重算）。
+
+---
+
+## 18. How did you identify and optimize the real performance bottleneck?
+
+**当前实现**
+两轮优化，每轮都是先测量再动手。
+
+第一轮（Sprint 2）测的是数据库查询数。给 SQLAlchemy engine 挂
+`before_cursor_execute` 监听器，逐端点数 SQL 语句：发现同一批监测序列
+被读了三次、最新评估被查了两次、最近值逐传感器查询。批量化后
+dashboard 28 → 7、overview 22 → 4、retrofit overview 64 → 13。
+
+但批量化之后耗时几乎没变（dashboard 仍在 80ms 量级）。于是第二轮先做拆分
+测量：单独计时异常检测与批量序列读取，结果是异常检测 80.0 ms、序列读取
+3.0 ms —— **92% 的响应时间是 CPU，不是查询**。瓶颈已经转移了。
+
+第二轮（Sprint 3）换了一个指标：不再数查询，而是数
+`run_anomaly_detection` 的**调用次数**。结果是聚合端点本来就没有重复
+（每栋建筑一次，已是理论最小值），真正重复的是 AI 链路：
+
+```
+build_engineering_context()
+  ├── run_anomaly_detection()            ← 第 1 次
+  └── get_retrofit_decision()
+        └── generate_recommendations()
+              └── run_anomaly_detection() ← 第 2 次（结果被丢弃）
+```
+
+引入请求作用域的 `BuildingAnalysis` 容器，一栋建筑算一次并沿调用栈传递：
+AI context build 从 16 查询 / 2 次异常检测 / 59.0 ms
+降到 7 查询 / 1 次 / 31.5 ms。retrofit overview 从 13 降到 6 条查询，
+且不再随建筑数增长。
+
+**技术理由**
+关键是**先测量再优化**，而且**测量指标要跟着瓶颈走**。第一轮数查询是对的，
+因为当时确实是查询问题；第二轮还数查询就会得出「没什么可优化」的错误结论，
+因为瓶颈已经变成 CPU 重算。换成数「同一份计算被触发几次」才定位到真正的重复。
+
+**为什么没有直接上 Redis**
+三个理由：一是重复发生在**单次请求内部**，不是跨请求 —— 缓存解决的是另一个问题；
+二是引入缓存要带来失效策略、一致性风险和第二份状态，而收益是 27 ms；
+三是这是原型系统、单机部署、无并发压力，缓存的复杂度换不来对等收益。
+用请求作用域的对象传递，代码量更小、语义更清晰、没有失效逻辑。
+
+**局限**
+- 跨 endpoint 的重复计算没有消除（dashboard 与 overview 各自算），
+  不引入缓存就消不掉
+- 单建筑写路径（health/recompute）本就该重算
+- 耗时的绝对值不大（30-90 ms 量级），是在小数据集上测的；
+  建筑数和记录数上去后分布会变
+
+**后续改进**
+把「取一次分析」提升为请求层的显式步骤，让多个视图共享同一份结果；
+在更大数据集上重做基准，确认 CPU 占比与查询占比的变化趋势。
+
+**等价性验证**
+所有优化都要求「优化路径 == 原路径」。做法是对同一栋建筑分别跑
+「传预加载」和「不传预加载」两条路径，逐字段比对 anomalies / health /
+risk / recommendations / decision / context，唯一允许的差异是
+`created_at` 墙钟时间（测试显式剥离并注明）。
+守卫本身也做了变异测试：去掉传下去的 analysis，测试立刻报
+`anomaly detection ran 2 times`。
 
 ---
 

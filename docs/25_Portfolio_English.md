@@ -228,7 +228,7 @@ it contains no standard codes and no redline phrases.
 
 | Suite | Result |
 |---|---|
-| Backend | **401 passed** |
+| Backend | **412 passed** |
 | Frontend | **97 passed** (15 files) |
 | TypeScript | 0 errors |
 | Production build | passes (714 modules) |
@@ -243,6 +243,10 @@ to lose silently:
 - aggregate endpoints must not grow their query count with the number of
   buildings
 - batched data loading must return exactly what the per-item loading returned
+- a reused, request-scoped analysis must produce byte-identical results to a
+  fresh per-building computation
+- anomaly detection runs once per building per request (verified by counting
+  invocations, not by inspecting code)
 - the AI safety redlines apply to both providers at runtime
 - the knowledge corpus contains no standard codes and no forbidden phrases
 
@@ -292,9 +296,9 @@ Not started; listed for direction.
 **Engineering**
 - serve all frontend parameters from the API (partially done — the parameter
   endpoint exists; the weight constants remain as an offline fallback)
-- batch the remaining per-building queries in the retrofit overview
-- compute anomaly detection once per request rather than once per aggregate
-  (currently ~92% of dashboard response time)
+- share one analysis across endpoints: anomaly detection is still recomputed per
+  request, and different endpoints each compute their own (~92% of a dashboard
+  response is anomaly detection CPU, not queries)
 - persist retrofit recommendations instead of recomputing them per request
 
 **Data**
