@@ -16,7 +16,7 @@ import QuickQuestions from "../components/ai/QuickQuestions";
 import { aiApi } from "../api/ai";
 import { buildingsApi } from "../api/buildings";
 import { useApi } from "../hooks/useApi";
-import type { AIResponse, Building } from "../types/api";
+import type { AIHealthStatus, AIResponse, Building } from "../types/api";
 
 export default function AIAssistant() {
   const [searchParams] = useSearchParams();
@@ -107,18 +107,29 @@ export default function AIAssistant() {
         }
       />
 
-      {/* Provider status banner */}
+      {/* Provider status banner · Phase 6A enhanced with ProviderBadge */}
       {healthData && (
         <div
-          className={`text-xs px-3 py-2 rounded border ${
-            healthData.status === "ok"
-              ? "bg-blue-50 border-blue-200 text-blue-800"
-              : "bg-amber-50 border-amber-200 text-amber-800"
+          className={`text-xs px-3 py-2 rounded border flex items-center gap-2 ${
+            healthData.status === "ok" && healthData.provider === "mock"
+              ? "bg-slate-50 border-slate-200 text-slate-700"
+              : healthData.status === "ok"
+                ? "bg-blue-50 border-blue-200 text-blue-800"
+                : "bg-amber-50 border-amber-200 text-amber-800"
           }`}
         >
-          <span className="font-medium">Provider:</span> {healthData.provider}{" "}
-          ({healthData.model}) · <span className="font-medium">Status:</span>{" "}
-          {healthData.status} · {healthData.message}
+          <ProviderBadge health={healthData} />
+          <span className="text-slate-500">·</span>
+          <span>
+            <span className="font-medium">Provider:</span> {healthData.provider}{" "}
+            ({healthData.model})
+          </span>
+          <span className="text-slate-500">·</span>
+          <span>
+            <span className="font-medium">Status:</span> {healthData.status}
+          </span>
+          <span className="text-slate-500">·</span>
+          <span className="flex-1">{healthData.message}</span>
         </div>
       )}
 
@@ -217,5 +228,45 @@ export default function AIAssistant() {
         </div>
       </div>
     </div>
+  );
+}
+
+
+/**
+ * ProviderBadge · Phase 6A
+ * 显示 provider mode (Mock / Live / Not Configured).
+ */
+export function ProviderBadge({ health }: { health: AIHealthStatus }) {
+  const isMisconfig = health.status === "provider_not_configured";
+  if (isMisconfig) {
+    return (
+      <span
+        data-testid="provider-badge"
+        data-mode="misconfigured"
+        className="px-2 py-0.5 bg-amber-100 border border-amber-300 rounded text-amber-800 font-medium uppercase text-[10px]"
+      >
+        Not Configured
+      </span>
+    );
+  }
+  if (health.provider === "mock") {
+    return (
+      <span
+        data-testid="provider-badge"
+        data-mode="mock"
+        className="px-2 py-0.5 bg-slate-200 border border-slate-300 rounded text-slate-800 font-medium uppercase text-[10px]"
+      >
+        Mock Mode
+      </span>
+    );
+  }
+  return (
+    <span
+      data-testid="provider-badge"
+      data-mode="live"
+      className="px-2 py-0.5 bg-emerald-100 border border-emerald-300 rounded text-emerald-800 font-medium uppercase text-[10px]"
+    >
+      Live AI · {health.provider}
+    </span>
   );
 }

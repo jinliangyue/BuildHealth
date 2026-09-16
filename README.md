@@ -5,9 +5,9 @@
 
 ## 当前状态
 
-**Phase 5 — V3 AI Engineering Assistant（已完成）**
+**Phase 6A — V3.1 Real LLM Provider Infrastructure（已完成）**
 
-V3 在 V1+V2 数据基础上,新增 **AI Engineering Assistant** —— 解释层 / 知识助手:
+V3.1 在 V3 Mock Mode 基础上, 引入**真实 LLM Provider 基础设施** (OpenAI-compatible). Mock Mode 仍是默认, 真实 LLM 仅在用户配置环境变量后启用.
 
 ```
 SQLite (data/buildhealth.db) · 8 张表 (V1 6 + V2 2)
@@ -19,40 +19,52 @@ Analytics Engine (V1: anomaly/health/risk · V2: priority/recommendation_rules)
 FastAPI (15 个业务端点 + 2 health)
     ↓
     ├── V1/V2 端点 (deterministic engineering data)
-    └── V3 AI 端点 (Mock provider, explanation layer)
+    └── V3 AI 端点 (Mock / OpenAI-compatible provider, explanation layer)
     ↓
 Vite proxy /api
     ↓
 React + TypeScript + ECharts
     ↓
-7 个工程仪表盘页面 (含新增 AI Assistant)
+7 个工程仪表盘页面 (含 AI Assistant · ProviderBadge 显示 mode)
 ```
 
-**V1 Capabilities (Phase 1-3):**
-- Building / Component / Sensor / MonitoringRecord 管理
-- 3 种异常检测 (threshold / rate_of_change / zscore)
-- BHI (Building Health Index) 0-100, 5 维度加权
-- 4 档 Risk Classification (Normal / Attention / Abnormal / HighRisk)
-- 6 个仪表盘页面 + 9 个 API 端点
+**V1 Capabilities (Phase 1-3):** Building / Component / Sensor / MonitoringRecord · 3 种异常检测 · BHI 0-100 · 4 档 Risk · 6 仪表盘页面 + 9 API 端点
 
-**V2 Capabilities (Phase 4):**
-- RetrofitRecommendation 模型 + EngineeringNote
-- 5 条规则引擎 (crack_growth / tilt_trend / moisture_control / energy_efficiency / comprehensive_assessment)
-- RP-v1.0 加权优先级评分 (5 维度, 0-100)
-- 完整 Evidence Chain (Sensors → Anomalies → BHI → Risk → Recommendation)
-- 3 个新 API 端点
-- 新增 `/retrofit` 页面 + Building Detail Retrofit Decision 段
-- Engineering Notes 显示
+**V2 Capabilities (Phase 4):** RetrofitRecommendation · EngineeringNote · 5 条规则引擎 · RP-v1.0 优先级 · Evidence Chain · 3 新 API · `/retrofit` 页面
 
-**V3 Capabilities (Phase 5):**
-- AI Engineering Assistant (Mock provider, deterministic)
-- EngineeringContext Builder (复用 V1/V2 services, 不重算)
-- AIResponse 结构: answer + key_findings + evidence + recommended_actions + disclaimer
-- 5 个 quick question 路由 + free-form ask
-- Evidence chain 可点击 (回退到 Building / Health / Risk / Retrofit)
-- 3 个新 API 端点 (`/api/ai/health`, `/summary`, `/ask`)
-- 新增 `/ai-assistant` 页面 + Building Detail AI 入口
-- Provider 抽象 (Phase 6+ 可加 OpenAI / Anthropic)
+**V3 Capabilities (Phase 5):** AI Mock Mode · EngineeringContext · AIResponse · 5 quick question · evidence 可点击 · 3 新 API · `/ai-assistant` 页面
+
+**V3.1 Capabilities (Phase 6A):**
+- ✓ **OpenAI-compatible Real Provider** (纯 httpx, 不安装 SDK)
+- ✓ Env-driven config (AI_PROVIDER / AI_API_KEY / AI_BASE_URL / AI_MODEL)
+- ✓ Failure handling (timeout / 401 / 403 / 429 / 5xx / malformed JSON)
+- ✓ Pydantic output validation + redline scan
+- ✓ Disclaimer 强制覆盖 (LLM 输出也会被 AI_DISCLAIMER 替换)
+- ✓ Prompt injection 防护 (system prompt 显式声明 user untrusted)
+- ✓ _MisconfiguredProvider 显式降级 (缺 key/url → 503 + structured body)
+- ✓ Frontend ProviderBadge (Mock Mode / Live AI / Not Configured)
+- ✗ RAG / knowledge/ (Phase 6B 留)
+- ✗ Conversation (Phase 6C 留)
+
+## AI Assistant Modes
+
+| Mode | 启用条件 | 行为 |
+|---|---|---|
+| **Mock Mode** (default) | 无 env, 或 `AI_PROVIDER=mock` | `MockProvider`, 确定性, 无外部调用, 完全离线 |
+| **Live AI** | `AI_PROVIDER=openai-compatible` + `AI_API_KEY` + `AI_BASE_URL` | `OpenAICompatibleProvider` 调真实 LLM |
+| **Not Configured** | `AI_PROVIDER=openai-compatible` 但缺 key/url | `_MisconfiguredProvider` 显式报错 (health 200 status="provider_not_configured", summary/ask → 503) |
+
+切换到 Live AI 流程:
+```bash
+cp backend/.env.example backend/.env
+# 编辑 backend/.env (本机, 不 commit):
+# AI_PROVIDER=openai-compatible
+# AI_API_KEY=sk-your-key
+# AI_BASE_URL=https://api.openai.com/v1
+# AI_MODEL=gpt-4o-mini
+```
+
+兼容端点: OpenAI / OpenRouter / Ollama / LM Studio / vLLM 等任何 OpenAI-compatible API.
 
 ## 启动
 
@@ -85,7 +97,7 @@ Vite 已配置 `/api` proxy 自动转发到 `http://localhost:8000`。
 
 ## 文档
 
-`docs/` 共 17 份设计文档:
+`docs/` 共 21 份设计文档:
 
 ### V1 (Phase 0-3)
 - `01_Project_Overview.md` · 项目定位 + 范围 + 原则
@@ -110,37 +122,47 @@ Vite 已配置 `/api` proxy 自动转发到 `http://localhost:8000`。
 - `16_AI_Safety_Redlines.md` · AI 安全红线 + 强制 disclaimer
 - `17_Phase5_Testing.md` · V3 测试策略
 
+### V3.1 (Phase 6A)
+- `18_Real_LLM_Provider.md` · Real Provider 设计
+- `19_Engineering_RAG.md` · **占位 (Phase 6B)**
+- `20_AI_Grounding_and_Safety.md` · V3 + V6A 合并安全
+- `21_Phase6_Testing.md` · V3.1 测试策略
+
 ## 重要声明 (Engineering Disclaimer)
 
 - **数据来源**: 全部为 `Simulated Data`（前端右下角常驻水印）
-- **BHI 公式**: `Prototype Design Parameters (BHI-v1.0)`, 非国家标准 / 行业标准 / 法定建筑安全等级
+- **BHI 公式**: `Prototype Design Parameters (BHI-v1.0)`, 非国家标准 / 行业标准
 - **风险分级**: `Prototype Risk Classification`, 仅辅助评估
 - **改造优先级 (V2)**: `Prototype Retrofit Priority Parameters (RP-v1.0)`, 仅工程决策支持
 - **改造建议 (V2)**: `Recommendation Rules v1.0 (REC-v1.0)`, 非自动结构设计
-- **AI Engineering Assistant (V3)**: `AI-v1.0`, 解释层 / 知识助手, Mock provider, 非真实 LLM
+- **AI Engineering Assistant (V3)**: `AI-v1.0`, 解释层 / 知识助手
+- **Real LLM (V3.1)**: OpenAI-compatible, Pydantic + redline 验证, 仍是解释层
 
 **系统能力边界:**
 - ✓ 识别问题 · 解释风险 · 计算优先级 · 推荐改造方向 · 给出成本等级 · 建议下一步行动 · 解释已有工程数据
 - ✗ 不预测建筑倒塌 · 不替代专业结构检测 · 不替代安全鉴定 · 不生成自动加固方案 · 不出结构施工图 · 不生成钢筋设计 · 不替代结构工程师 · 不自动完成工程鉴定 · 不声称符合标准
 
-**V3 不做的事:**
-- ✗ 不接真实 LLM API (OpenAI / Anthropic / Gemini)
-- ✗ 不做 RAG / Vector DB / Agent / MCP / Function Calling
-- ✗ 不做 chat history 持久化
-- ✗ 不做 streaming response
-- ✗ 不接 IoT / 真实硬件
-- ✗ 不做 BIM / GIS / 3D
+**V3.1 不做的事:**
+- ✗ 不接 RAG / Vector DB / knowledge/ 目录 (Phase 6B 留)
+- ✗ 不做 Conversation / 多轮对话 / conversation_id (Phase 6C 留)
+- ✗ 不接真实 Anthropic native SDK (用 OpenAI-compatible 代理)
+- ✗ 不做 streaming response / SSE
+- ✗ 不做 function calling / Agent / MCP
+- ✗ 不做 rate limiting / cost tracking
+- ✗ 不接 IoT / 真实硬件 / BIM / GIS / 3D
 - ✗ 不做云部署 / 支付 / 用户权限
 - ✗ 不在 AI 核心计算中替代确定性工程算法
 - ✗ 不修改 V1 BHI / V2 Retrofit 算法
+- ✗ 不安装 openai / anthropic / langchain 等 SDK
 
-**AI 不得声称 (强制):**
+**AI 不得声称 (强制, V3 + V3.1):**
 - ✗ "This building is safe" / "building will collapse"
 - ✗ "Automatic structural appraisal completed"
 - ✗ "Official safety certification"
 - ✗ "AI-designed reinforcement"
 - ✗ "Professional inspection completed" (without qualified qualifier)
 - ✗ "Complies with national standard" / 符合国家标准
+- ✗ 即使 LLM 返回自己的 disclaimer, 也会被强制覆盖为 AI_DISCLAIMER
 
 ## 技术栈
 
@@ -150,44 +172,39 @@ Vite 已配置 `/api` proxy 自动转发到 `http://localhost:8000`。
 | Backend | Python 3.9 + FastAPI 0.115 + SQLAlchemy 2.0 + Pydantic 2.9 |
 | Database | SQLite (开发期单文件 `data/buildhealth.db`) |
 | Data Analysis | Pandas + NumPy + SciPy (V2 trend score 中使用) |
-| AI | Mock Provider (Phase 5) · Provider Protocol 预留 (Phase 6+ 接 OpenAI / Anthropic) |
+| AI Mock | Phase 5 MockProvider (deterministic) |
+| AI Real | Phase 6A OpenAI-compatible Provider (纯 httpx, 不安装 SDK) |
 | Test | pytest 8.3 + FastAPI TestClient + StaticPool 内存 SQLite / Vitest + Testing Library |
 
 ## 端到端验证状态
 
 ### V1 (9 endpoints)
-| 端点 | 验证 |
-|---|---|
-| GET `/api/buildings/` | ✓ 200 · 3 栋 |
-| GET `/api/buildings/{id}` | ✓ 200 |
-| GET `/api/buildings/{id}/sensors` | ✓ 200 · 5 个 |
-| GET `/api/monitoring/` | ✓ 200 · 含时间窗口过滤 |
-| GET `/api/buildings/{id}/health` | ✓ 200 |
-| POST `/api/buildings/{id}/health/recompute` | ✓ 200 |
-| GET `/api/buildings/{id}/risk` | ✓ 200 |
-| GET `/api/buildings/{id}/alerts` | ✓ 200 |
-| GET `/api/dashboard/summary` | ✓ 200 · 真实聚合 |
+全部 ✓ 200
 
 ### V2 (3 endpoints)
 | 端点 | 验证 |
 |---|---|
-| GET `/api/buildings/{id}/retrofit` | ✓ 200 · 含 evidence chain + priority breakdown |
-| GET `/api/buildings/{id}/retrofit/{rec_id}` | ✓ 200 · 单条详情 |
-| GET `/api/retrofit/overview` | ✓ 200 · 跨建筑聚合 |
+| GET `/api/buildings/{id}/retrofit` | ✓ 200 |
+| GET `/api/buildings/{id}/retrofit/{rec_id}` | ✓ 200 |
+| GET `/api/retrofit/overview` | ✓ 200 |
 
 ### V3 (3 endpoints)
-| 端点 | 验证 |
-|---|---|
-| GET `/api/ai/health` | ✓ 200 · provider=mock, model=mock-deterministic-v1 |
-| POST `/api/ai/buildings/{id}/summary` | ✓ 200 · 含 answer + key_findings + evidence + disclaimer |
-| POST `/api/ai/buildings/{id}/ask` | ✓ 200 · Mock keyword routing |
+全部 ✓ 200 (Mock Mode)
+
+### V3.1 (3 endpoints · 含 503 错误路径)
+| 端点 | Mock | Misconfigured |
+|---|---|---|
+| GET `/api/ai/health` | 200 + status=ok | 200 + status=provider_not_configured |
+| POST `/api/ai/buildings/{id}/summary` | 200 | 503 + body.detail.provider_error=config_error |
+| POST `/api/ai/buildings/{id}/ask` | 200 | 503 |
 
 **测试统计:**
-- Backend: **278 tests passed** (V1 76 + V2 123 + V3 79)
-- Frontend: **60 tests passed** (V1 30 + V2 20 + V3 10)
+- Backend: **321 tests passed** (V1 76 + V2 123 + V3 79 + V3.1 43)
+- Frontend: **65 tests passed** (V1 30 + V2 20 + V3 10 + V3.1 5)
 - Engineering Redlines: ~30 V1 + 25+ V3 phrases 强制扫描
-- Frontend build: ✓ PASS (1348 KB bundle · 441 KB gzip)
+- Frontend build: ✓ PASS (1349 KB bundle · 441 KB gzip)
 - TypeScript: 0 errors
+- **No secrets committed** (verified via grep + git diff)
 
 ## License
 

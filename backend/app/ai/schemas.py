@@ -141,3 +141,27 @@ class EngineeringContext(BaseModel):
     disclaimer: str
     generated_at: datetime
     context_version: str = Field(default="CTX-v1.0")
+
+
+# ============ Phase 6A · Provider Errors ============
+class AIProviderError(Exception):
+    """
+    Raised by AIProvider implementations to signal a structured failure.
+
+    Codes:
+    - "config_error"     · env config missing/invalid
+    - "timeout"          · request timeout
+    - "network_error"    · DNS / TCP / TLS failure
+    - "auth_error"       · 401 / 403 (invalid key)
+    - "rate_limit"       · 429
+    - "client_error"     · 4xx (not 401/403/429)
+    - "provider_error"   · 5xx or upstream unavailable
+    - "malformed_response" · non-JSON or schema-invalid response
+    - "safety_violation" · response contains forbidden phrases
+    - "internal_error"   · unexpected internal error
+    """
+
+    def __init__(self, code: str, message: str):
+        self.code = code
+        self.message = message
+        super().__init__(f"[AIProvider:{code}] {message}")

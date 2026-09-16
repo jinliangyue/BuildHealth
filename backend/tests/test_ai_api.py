@@ -157,3 +157,50 @@ def test_main_health_includes_ai_component(client):
     r = client.get("/api/health")
     data = r.json()
     assert "ai_assistant" in data["components"]
+
+
+# ============ Phase 6A · Misconfigured Provider → 503 ============
+def test_summary_503_when_misconfigured(monkeypatch, client, test_session, api_building):
+    """AI_PROVIDER=openai-compatible 缺 key → summary 503 with structured body."""
+    from app.ai.provider_factory import reset_ai_provider
+    monkeypatch.setenv("AI_PROVIDER", "openai-compatible")
+    monkeypatch.delenv("AI_API_KEY", raising=False)
+    monkeypatch.setenv("AI_BASE_URL", "https://x")
+    reset_ai_provider()
+    b = api_building
+    r = client.post(f"/api/ai/buildings/{b.id}/summary")
+    assert r.status_code == 503
+    body = r.json()
+    # FastAPI 包装: detail.provider_error
+    assert body["detail"]["provider_error"] == "config_error"
+
+
+def test_ask_503_when_misconfigured(monkeypatch, client, test_session, api_building):
+    """AI_PROVIDER=openai-compatible 缺 key → ask 503."""
+    from app.ai.provider_factory import reset_ai_provider
+    monkeypatch.setenv("AI_PROVIDER", "openai-compatible")
+    monkeypatch.delenv("AI_API_KEY", raising=False)
+    monkeypatch.setenv("AI_BASE_URL", "https://x")
+    reset_ai_provider()
+    b = api_building
+    r = client.post(
+        f"/api/ai/buildings/{b.id}/ask",
+        json={"question": "Summarize"},
+    )
+    assert r.status_code == 503
+    body = r.json()
+    assert body["detail"]["provider_error"] == "config_error"
+
+
+def test_health_status_provider_not_configured(monkeypatch, client):
+    """/api/ai/health 端点可显式报告 provider_not_configured (HTTP 200, body status)."""
+    from app.ai.provider_factory import reset_ai_provider
+    monkeypatch.setenv("AI_PROVIDER", "openai-compatible")
+    monkeypatch.delenv("AI_API_KEY", raising=False)
+    monkeypatch.setenv("AI_BASE_URL", "https://x")
+    reset_ai_provider()
+    r = client.get("/api/ai/health")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["status"] == "provider_not_configured"
+    assert data["provider"] == "openai-compatible"

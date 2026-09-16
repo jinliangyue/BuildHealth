@@ -51,6 +51,11 @@ FORBIDDEN_PHRASES = [
 
 
 # ============ Fixture: 扫描所有 .py 源文件 ============
+# Exclude files that are themselves meta-definitions of forbidden phrases
+# (e.g. app/ai/redlines.py lists them in negative context).
+REDLINE_META_FILES = {"redlines.py"}
+
+
 @pytest.fixture(scope="module")
 def all_py_source():
     backend = Path(__file__).resolve().parent.parent
@@ -61,6 +66,8 @@ def all_py_source():
         if "venv" in parts or "__pycache__" in parts or ".git" in parts:
             continue
         if "tests" in parts:
+            continue
+        if py.name in REDLINE_META_FILES:
             continue
         try:
             content = py.read_text(encoding="utf-8")

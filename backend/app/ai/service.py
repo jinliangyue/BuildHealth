@@ -1,9 +1,11 @@
 """
-AI Service · Phase 5 V3
-========================
+AI Service · Phase 5 V3 + Phase 6A
+====================================
 
-编排: Provider + Context Builder.
-Singleton provider 实例 (mock default).
+Phase 6A 改造:
+- 改用 provider_factory.get_ai_provider()
+- try/except AIProviderError, 包装为统一错误路径
+- 保留 singleton 行为 (reset_ai_provider 从 factory 暴露)
 
 不写库. 不修改任何已有 V1 / V2 service.
 """
@@ -13,36 +15,21 @@ from sqlalchemy.orm import Session
 
 from app.ai.schemas import (
     AIHealthStatus,
+    AIProviderError,
     AIResponse,
-    EngineeringContext,
 )
 from app.ai.context_builder import build_engineering_context
-from app.ai.mock_provider import MockProvider
+from app.ai.provider_factory import get_ai_provider, reset_ai_provider  # re-export
 from app.ai.provider import AIProvider
-from app.core.config import AI_PROVIDER
 
 
-# Singleton provider
-_provider_instance: Optional[AIProvider] = None
-
-
-def get_ai_provider() -> AIProvider:
-    """Return singleton AI provider. 真实 LLM 未实现 → 始终 Mock."""
-    global _provider_instance
-    if _provider_instance is None:
-        if AI_PROVIDER == "mock":
-            _provider_instance = MockProvider()
-        else:
-            # 真实 provider 未实现 → 显式降级到 mock
-            # 未来 Phase 6+ 在此处加 OpenAIProvider / AnthropicProvider
-            _provider_instance = MockProvider()
-    return _provider_instance
-
-
-def reset_ai_provider() -> None:
-    """测试辅助: 重置 singleton. 正常代码不要调用."""
-    global _provider_instance
-    _provider_instance = None
+# Re-export for backward compatibility
+__all__ = [
+    "AIService",
+    "get_ai_service",
+    "get_ai_provider",
+    "reset_ai_provider",
+]
 
 
 class AIService:
@@ -58,7 +45,16 @@ class AIService:
         ctx = build_engineering_context(session, building_id)
         if ctx is None:
             return None
-        return self.provider.generate_summary(ctx)
+        try:
+            return self.provider.generate_summary(ctx)
+        except AIProviderError:
+            # 重新抛, 由 API 层统一转 HTTP
+            raise
+        except Exception as e:
+            # 防御性: 任何非 AIProviderError 异常包装为 internal_error
+            raise AIProviderError(
+                "internal_error", f"unexpected error: {str(e)[:200]}"
+            ) from e
 
     def ask_about_building(
         self, session: Session, building_id: int, question: str
@@ -66,7 +62,14 @@ class AIService:
         ctx = build_engineering_context(session, building_id)
         if ctx is None:
             return None
-        return self.provider.generate_answer(ctx, question.strip())
+        try:
+            return self.provider.generate_answer(ctx, question.strip())
+        except AIProviderError:
+            raise
+        except Exception as e:
+            raise AIProviderError(
+                "internal_error", f"unexpected error: {str(e)[:200]}"
+            ) from e
 
 
 def get_ai_service() -> AIService:

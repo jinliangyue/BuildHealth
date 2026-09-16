@@ -3,6 +3,7 @@
 Phase 1 引入 pydantic-settings 加载 .env
 """
 import os
+from typing import Optional
 
 # BHI 权重版本（Prototype Design Parameters v0.1）
 BHI_WEIGHTS_V0_1 = {
@@ -68,3 +69,37 @@ AI_DISCLAIMER = (
     "design, or a building safety certification. All outputs require "
     "qualified professional review."
 )
+
+
+# =================================================================
+# AI Engineering Assistant · Phase 6A · Real LLM Provider
+# =================================================================
+# 默认 mock provider, 无任何 key 也能跑. 设置后切到真实 LLM.
+# 不在源码 / .env.example / Git 中放置真实 key.
+# AIProvider: "mock" (default) | "openai-compatible"
+# 当 AI_PROVIDER=openai-compatible 时, AI_API_KEY 和 AI_BASE_URL 必填.
+import os
+
+AI_PROVIDER = os.getenv("AI_PROVIDER", "mock").strip().lower()
+AI_MODEL = os.getenv("AI_MODEL", "mock-deterministic-v1").strip()
+AI_BASE_URL = os.getenv("AI_BASE_URL", "").strip()
+AI_API_KEY = os.getenv("AI_API_KEY", "").strip()
+AI_REQUEST_TIMEOUT = float(os.getenv("AI_REQUEST_TIMEOUT", "30"))
+AI_MAX_TOKENS = int(os.getenv("AI_MAX_TOKENS", "1500"))
+AI_TEMPERATURE = float(os.getenv("AI_TEMPERATURE", "0.2"))
+
+
+def validate_ai_config() -> Optional[str]:
+    """Phase 6A 启动时 sanity check. 返回 None 表示 OK, 否则返回错误描述."""
+    if AI_PROVIDER == "openai-compatible":
+        if not AI_API_KEY:
+            return (
+                "AI_API_KEY is not set. Either set it in the environment "
+                "or switch to AI_PROVIDER=mock."
+            )
+        if not AI_BASE_URL:
+            return (
+                "AI_BASE_URL is not set. Either set it in the environment "
+                "or switch to AI_PROVIDER=mock."
+            )
+    return None
