@@ -96,3 +96,90 @@ BHI_WEIGHTS: Dict[str, float] = {
 }
 
 BHI_CALCULATION_VERSION = "BHI-v1.0"
+
+
+# =================================================================
+# Retrofit Priority (RP-v1.0) · Phase 4 V2
+# =================================================================
+# 5 维度子分加权得到 0-100 的 priority score
+RETROFIT_PRIORITY_WEIGHTS: Dict[str, float] = {
+    "risk_severity": 0.35,
+    "trend": 0.25,
+    "component_importance": 0.20,
+    "urgency": 0.10,
+    "cost_efficiency": 0.10,
+}
+
+RETROFIT_PRIORITY_VERSION = "RP-v1.0"
+RECOMMENDATION_RULES_VERSION = "REC-v1.0"
+
+# 4 档 urgency → 子分 (0-100, 越高越紧急)
+URGENCY_SCORES: Dict[str, float] = {
+    "critical": 100.0,
+    "high": 80.0,
+    "medium": 50.0,
+    "low": 20.0,
+}
+
+# 3 档 cost level → cost efficiency (低成本=高效率分)
+COST_EFFICIENCY_SCORES: Dict[str, float] = {
+    "low": 90.0,
+    "medium": 60.0,
+    "high": 30.0,
+}
+
+# 6 类 component_type → 重要性 (0-100)
+COMPONENT_IMPORTANCE: Dict[str, float] = {
+    "foundation": 100.0,
+    "column": 100.0,
+    "beam": 80.0,
+    "wall": 80.0,
+    "slab": 60.0,
+    "roof": 60.0,
+}
+DEFAULT_COMPONENT_IMPORTANCE = 70.0
+
+# 4 档 risk_level → severity 子分 (高 risk = 高 severity, retrofit 越紧急)
+RISK_SEVERITY_SCORES: Dict[str, float] = {
+    "Normal": 15.0,
+    "Attention": 50.0,
+    "Abnormal": 80.0,
+    "HighRisk": 100.0,
+}
+
+# Priority score → Priority Level 边界
+# 0-59 Low / 60-74 Medium / 75-89 High / 90-100 Very High
+PRIORITY_LEVEL_THRESHOLDS: List[tuple] = [
+    (90.0, "Very High"),
+    (75.0, "High"),
+    (60.0, "Medium"),
+    (0.0, "Low"),
+]
+
+# Trend score 默认值 (当无监测数据时)
+DEFAULT_TREND_SCORE = 50.0
+
+
+# =================================================================
+# Recommendation Rules Trigger Thresholds
+# =================================================================
+# crack_width / tilt: 触发时对应的 z-score 阈值
+RULE_ZSCORE_TRIGGER = 2.0
+# env / energy 评分阈值（< 该值时对应 rule 触发）
+RULE_ENV_SCORE_THRESHOLD = 80.0
+RULE_ENERGY_SCORE_THRESHOLD = 80.0
+# 监测数据最近窗口天数（用于 trend & anomaly 统计）
+RULE_RECENT_WINDOW_DAYS = 30
+# evidence 中保留的 recent_values 数量
+RULE_RECENT_VALUES_LIMIT = 10
+
+
+# =================================================================
+# Disclaimer
+# =================================================================
+RETROFIT_DISCLAIMER = (
+    "Retrofit priority is computed using Prototype Retrofit Priority Parameters "
+    "(RP-v1.0). This output is engineering decision support only and does not "
+    "constitute an automated structural reinforcement plan. "
+    "All recommendations require qualified professional review."
+)

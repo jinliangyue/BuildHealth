@@ -14,7 +14,8 @@ def test_root():
     assert response.status_code == 200
     data = response.json()
     assert data["project"] == "BuildHealth"
-    assert "Phase 1" in data["phase"]
+    # V2 起 phase 变为 "Phase 4 - V2 Retrofit Decision Support"
+    assert "Phase" in data["phase"]
 
 
 def test_health_check():

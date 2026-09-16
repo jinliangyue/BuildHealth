@@ -4,6 +4,7 @@ Pydantic Schemas · API Request/Response Models
 """
 from datetime import datetime
 from typing import List, Optional, Dict, Any
+from enum import Enum
 from pydantic import BaseModel, Field, ConfigDict
 
 
@@ -157,3 +158,109 @@ class BuildingOverviewItem(BaseModel):
 class BuildingsOverviewResponse(BaseModel):
     total: int
     items: List[BuildingOverviewItem]
+
+
+# ===================== Retrofit Decision (V2) =====================
+class RetrofitPriorityLevelEnum(str, Enum):
+    Low = "Low"
+    Medium = "Medium"
+    High = "High"
+    VeryHigh = "Very High"
+
+
+class RetrofitEvidenceSensor(BaseModel):
+    sensor_id: int
+    metric: str
+    name: str
+    unit: str
+    location: str
+    recent_values: List[Dict[str, Any]] = Field(default_factory=list)
+    anomaly_count_by_severity: Dict[str, int] = Field(default_factory=dict)
+
+
+class RetrofitEvidenceContext(BaseModel):
+    sensors: List[RetrofitEvidenceSensor] = Field(default_factory=list)
+    anomalies: List[Dict[str, Any]] = Field(default_factory=list)
+    bhi_context: Optional[Dict[str, Any]] = None
+    risk_context: Optional[Dict[str, Any]] = None
+    anomaly_summary: Optional[Dict[str, int]] = None
+
+
+class PriorityScoreBreakdownRead(BaseModel):
+    risk_severity: float = Field(..., ge=0, le=100)
+    risk_severity_contribution: float
+    trend: float = Field(..., ge=0, le=100)
+    trend_contribution: float
+    component_importance: float = Field(..., ge=0, le=100)
+    component_importance_contribution: float
+    urgency: float = Field(..., ge=0, le=100)
+    urgency_contribution: float
+    cost_efficiency: float = Field(..., ge=0, le=100)
+    cost_efficiency_contribution: float
+    total: float = Field(..., ge=0, le=100)
+    calculation_version: str
+
+
+class RetrofitRecommendationRead(BaseModel):
+    id: int
+    building_id: int
+    component_id: Optional[int] = None
+    category: str
+    issue_type: str
+    title: str
+    recommendation: str
+    rationale: str
+    next_action: str
+    urgency: str
+    estimated_cost_level: str
+    expected_benefit: str
+    source: str
+    calculation_version: str
+    created_at: datetime
+    evidence: RetrofitEvidenceContext
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RetrofitRecommendationDetailRead(RetrofitRecommendationRead):
+    priority_score: float = Field(..., ge=0, le=100)
+    priority_breakdown: PriorityScoreBreakdownRead
+
+
+class EngineeringNoteRead(BaseModel):
+    id: int
+    building_id: int
+    component_id: Optional[int] = None
+    text: str
+    source: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RetrofitDecisionRead(BaseModel):
+    building_id: int
+    building: BuildingRead
+    overall_priority: float = Field(..., ge=0, le=100)
+    overall_priority_level: RetrofitPriorityLevelEnum
+    calculation_version: str
+    recommendations: List[RetrofitRecommendationDetailRead] = Field(default_factory=list)
+    engineering_notes: List[EngineeringNoteRead] = Field(default_factory=list)
+    disclaimer: str
+
+
+class RetrofitOverviewItem(BaseModel):
+    building: BuildingRead
+    overall_priority: float
+    overall_priority_level: RetrofitPriorityLevelEnum
+    recommendation_count: int
+    high_priority_count: int
+    top_category: str
+
+
+class RetrofitOverviewResponse(BaseModel):
+    total: int
+    items: List[RetrofitOverviewItem] = Field(default_factory=list)
+    average_priority: float
+    calculation_version: str
+    disclaimer: str

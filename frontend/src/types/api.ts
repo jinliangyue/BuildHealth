@@ -172,3 +172,161 @@ export const METRIC_LABELS: Record<Metric, string> = {
   humidity: "Humidity",
   electricity: "Electricity",
 };
+
+// ===== Retrofit Decision (V2) =====
+export type RetrofitCategory =
+  | "Structural"
+  | "Envelope"
+  | "MEP"
+  | "Environment"
+  | "Energy"
+  | "FireSafety";
+
+export type RetrofitUrgency = "low" | "medium" | "high" | "critical";
+export type RetrofitCostLevel = "low" | "medium" | "high";
+export type RetrofitBenefitLevel = "low" | "medium" | "high";
+export type RetrofitPriorityLevel = "Low" | "Medium" | "High" | "VeryHigh";
+
+export interface RetrofitEvidenceSensor {
+  sensor_id: number;
+  metric: Metric;
+  name: string;
+  unit: string;
+  location: string;
+  recent_values: Array<{ timestamp: string; value: number }>;
+  anomaly_count_by_severity: { high: number; medium: number; low: number };
+}
+
+export interface RetrofitEvidence {
+  sensors: RetrofitEvidenceSensor[];
+  anomalies: Array<{
+    sensor_id: number | null;
+    metric: string;
+    timestamp: string;
+    current_value: number;
+    detection_method: DetectionMethod;
+    severity: Severity;
+    explanation: string;
+  }>;
+  bhi_context: { score: number; weakest_dimension: string } | null;
+  risk_context: { risk_level: RiskLevel; explanation: string } | null;
+  anomaly_summary: { total: number; high: number; medium: number } | null;
+}
+
+export interface PriorityScoreBreakdown {
+  risk_severity: number;
+  risk_severity_contribution: number;
+  trend: number;
+  trend_contribution: number;
+  component_importance: number;
+  component_importance_contribution: number;
+  urgency: number;
+  urgency_contribution: number;
+  cost_efficiency: number;
+  cost_efficiency_contribution: number;
+  total: number;
+  calculation_version: string;
+}
+
+export interface RetrofitRecommendation {
+  id: number;
+  building_id: number;
+  component_id: number | null;
+  category: RetrofitCategory;
+  issue_type: string;
+  title: string;
+  recommendation: string;
+  rationale: string;
+  next_action: string;
+  urgency: RetrofitUrgency;
+  estimated_cost_level: RetrofitCostLevel;
+  expected_benefit: RetrofitBenefitLevel;
+  source: string;
+  calculation_version: string;
+  created_at: string;
+  evidence: RetrofitEvidence;
+  priority_score: number;
+  priority_breakdown: PriorityScoreBreakdown;
+}
+
+export interface EngineeringNote {
+  id: number;
+  building_id: number;
+  component_id: number | null;
+  text: string;
+  source: string;
+  created_at: string;
+}
+
+export interface RetrofitDecision {
+  building_id: number;
+  building: Building;
+  overall_priority: number;
+  overall_priority_level: RetrofitPriorityLevel;
+  calculation_version: string;
+  recommendations: RetrofitRecommendation[];
+  engineering_notes: EngineeringNote[];
+  disclaimer: string;
+}
+
+export interface RetrofitOverviewItem {
+  building: Building;
+  overall_priority: number;
+  overall_priority_level: RetrofitPriorityLevel;
+  recommendation_count: number;
+  high_priority_count: number;
+  top_category: string;
+}
+
+export interface RetrofitOverviewResponse {
+  total: number;
+  items: RetrofitOverviewItem[];
+  average_priority: number;
+  calculation_version: string;
+  disclaimer: string;
+}
+
+// ===== Retrofit Display Helpers =====
+export const PRIORITY_LEVEL_COLORS: Record<RetrofitPriorityLevel, string> = {
+  Low: "#94A3B8",
+  Medium: "#F59E0B",
+  High: "#F97316",
+  VeryHigh: "#EF4444",
+};
+
+export const PRIORITY_LEVEL_LABELS: Record<RetrofitPriorityLevel, string> = {
+  Low: "Low",
+  Medium: "Medium",
+  High: "High",
+  VeryHigh: "Very High",
+};
+
+export const URGENCY_COLORS: Record<RetrofitUrgency, string> = {
+  low: "#94A3B8",
+  medium: "#F59E0B",
+  high: "#F97316",
+  critical: "#EF4444",
+};
+
+export const CATEGORY_LABELS: Record<RetrofitCategory, string> = {
+  Structural: "Structural",
+  Envelope: "Envelope",
+  MEP: "MEP",
+  Environment: "Environment",
+  Energy: "Energy",
+  FireSafety: "Fire Safety",
+};
+
+export const ISSUE_TYPE_LABELS: Record<string, string> = {
+  crack_growth: "Crack Growth",
+  tilt_trend: "Tilt Trend",
+  moisture_control: "Moisture Control",
+  energy_efficiency: "Energy Efficiency",
+  comprehensive_assessment: "Comprehensive Assessment",
+};
+
+export const COST_LEVEL_COLORS: Record<RetrofitCostLevel, string> = {
+  low: "#10B981",
+  medium: "#F59E0B",
+  high: "#EF4444",
+};

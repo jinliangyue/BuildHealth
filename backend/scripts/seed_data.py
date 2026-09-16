@@ -23,7 +23,7 @@
 import sys
 import os
 from datetime import datetime, timedelta
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 import math
 import random
 
@@ -119,6 +119,25 @@ COMPONENT_TEMPLATES = [
     ("Slab-Roof", "slab", "Roof slab"),
     ("Foundation-East", "foundation", "East foundation"),
 ]
+
+# Phase 4 V2 · 每建筑 1 条工程笔记
+ENGINEERING_NOTES_BY_KEY = {
+    "healthy": (
+        "Routine quarterly inspection completed. "
+        "No major concerns identified. All monitoring metrics stable.",
+        "field_note",
+    ),
+    "attention": (
+        "Minor moisture observed at the north envelope connection during 2026 Q2 inspection. "
+        "Recommend follow-up review of moisture barrier condition.",
+        "site_inspection",
+    ),
+    "abnormal": (
+        "Observed crack development around the south facade, "
+        "significant spread since 2025. Recommended detailed structural inspection.",
+        "site_inspection",
+    ),
+}
 
 METRIC_UNITS = {
     "crack_width": "mm",
@@ -285,6 +304,29 @@ def build_records(
     return total
 
 
+def build_engineering_note(
+    session: Session,
+    building: m.Building,
+    components: List[m.Component],
+    template_key: str,
+) -> Optional[m.EngineeringNote]:
+    """Phase 4 V2 · 为单建筑写入 1 条工程笔记 (从 ENGINEERING_NOTES_BY_KEY 读取)."""
+    note = ENGINEERING_NOTES_BY_KEY.get(template_key)
+    if note is None:
+        return None
+    text, source = note
+    comp = components[0] if components else None
+    n = m.EngineeringNote(
+        building_id=building.id,
+        component_id=comp.id if comp else None,
+        text=text,
+        source=source,
+    )
+    session.add(n)
+    session.flush()
+    return n
+
+
 # =================================================================
 # 异常检测 + 健康评分 + 风险分类（写入数据库）
 # =================================================================
@@ -439,11 +481,14 @@ def main(days: int = 90, verbose: bool = True) -> Dict:
 
     wipe_database()
     if verbose:
-        print("[1/4] Database wiped & tables recreated")
+        print("[1/5] Database wiped & tables recreated")
 
     session = SessionLocal()
     try:
-        stats = {"buildings": 0, "components": 0, "sensors": 0, "records": 0, "alerts": 0, "assessments": 0}
+        stats = {
+            "buildings": 0, "components": 0, "sensors": 0, "records": 0,
+            "alerts": 0, "assessments": 0, "engineering_notes": 0,
+        }
 
         for template in BUILDING_TEMPLATES:
             b = build_building(session, template)
@@ -466,6 +511,11 @@ def main(days: int = 90, verbose: bool = True) -> Dict:
 
             cls = run_risk_classification(session, b, assessment, alerts)
 
+            # Phase 4 V2 · 工程笔记
+            note = build_engineering_note(session, b, comps, template["key"])
+            if note is not None:
+                stats["engineering_notes"] += 1
+
             if verbose:
                 print(
                     f"\n  → {b.name}\n"
@@ -474,6 +524,7 @@ def main(days: int = 90, verbose: bool = True) -> Dict:
                     f"M={sum(1 for a in alerts if a.severity=='medium')}, "
                     f"L={sum(1 for a in alerts if a.severity=='low')})\n"
                     f"     BHI={assessment.score:.2f} | {cls.risk_level}\n"
+                    f"     notes=1\n"
                 )
 
         session.commit()

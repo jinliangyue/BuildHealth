@@ -1,7 +1,7 @@
 /**
  * Building Detail · 单建筑档案 + BHI + 监测趋势 + 异常
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import TopBar from "../components/layout/TopBar";
 import { Card, LoadingState, ErrorState, EmptyState, Badge } from "../components/ui/StateViews";
@@ -11,6 +11,7 @@ import { buildingsApi } from "../api/buildings";
 import { healthApi } from "../api/health";
 import { riskApi } from "../api/risk";
 import { monitoringApi } from "../api/monitoring";
+import { retrofitApi } from "../api/retrofit";
 import { useApi } from "../hooks/useApi";
 import { formatTimestamp, formatNumber } from "../hooks/format";
 import {
@@ -26,7 +27,11 @@ import {
   type RiskClassification,
   type RiskAlert,
   type DimensionInfo,
+  type RetrofitDecision,
 } from "../types/api";
+import PriorityScoreCard from "../components/retrofit/PriorityScoreCard";
+import PriorityRankingList from "../components/retrofit/PriorityRankingList";
+import RecommendationDetail from "../components/retrofit/RecommendationDetail";
 
 interface DetailPayload {
   building: Building;
@@ -42,6 +47,7 @@ interface DetailPayload {
 export default function BuildingDetail() {
   const { id } = useParams<{ id: string }>();
   const buildingId = Number(id);
+  const [selectedRecId, setSelectedRecId] = useState<number | undefined>(undefined);
 
   const { data, loading, error, refetch } = useApi(async (): Promise<DetailPayload | null> => {
     if (!Number.isFinite(buildingId)) return null;
@@ -84,6 +90,19 @@ export default function BuildingDetail() {
       crackUnit,
     };
   }, [buildingId]);
+
+  // Retrofit decision (独立 useApi 以便 tab 切换不影响 overview)
+  const { data: retrofitData, loading: retrofitLoading, error: retrofitError, refetch: refetchRetrofit } = useApi(
+    async (): Promise<RetrofitDecision | null> => {
+      if (!Number.isFinite(buildingId)) return null;
+      try {
+        return await retrofitApi.decision(buildingId);
+      } catch {
+        return null;
+      }
+    },
+    [buildingId],
+  );
 
   const dimensionRows = useMemo<DimensionInfo[]>(() => {
     if (!data) return [];
@@ -358,6 +377,83 @@ export default function BuildingDetail() {
             </div>
           ))}
         </div>
+      </Card>
+
+      {/* Phase 4 V2 · Retrofit Decision Tab */}
+      <Card
+        title="Retrofit Decision"
+        subtitle="Prototype priority + recommendations + engineering notes"
+        right={
+          <button
+            onClick={refetchRetrofit}
+            className="text-xs px-2.5 py-1 border border-slate-300 rounded text-slate-600 hover:bg-slate-50"
+          >
+            Refresh
+          </button>
+        }
+      >
+        {retrofitLoading && <LoadingState label="Loading retrofit decision..." />}
+        {retrofitError && <ErrorState message={retrofitError} onRetry={refetchRetrofit} />}
+        {retrofitData && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <PriorityScoreCard
+                score={retrofitData.overall_priority}
+                level={retrofitData.overall_priority_level}
+                calculationVersion={retrofitData.calculation_version}
+                subtitle={`${retrofitData.recommendations.length} recommendations`}
+              />
+              <div>
+                <h4 className="text-sm font-semibold text-slate-800 mb-2">
+                  Priority Ranking
+                </h4>
+                <PriorityRankingList
+                  items={retrofitData.recommendations}
+                  selectedId={selectedRecId}
+                  onSelect={(rec) => setSelectedRecId(rec.id)}
+                  showHeader={false}
+                />
+              </div>
+            </div>
+
+            {selectedRecId && (
+              (() => {
+                const rec = retrofitData.recommendations.find(
+                  (r) => r.id === selectedRecId,
+                );
+                if (!rec) return null;
+                return <RecommendationDetail rec={rec} />;
+              })()
+            )}
+
+            {/* Engineering Notes */}
+            {retrofitData.engineering_notes.length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold text-slate-800 mb-2">
+                  Engineering Notes
+                </h4>
+                <ul className="space-y-2">
+                  {retrofitData.engineering_notes.map((n) => (
+                    <li
+                      key={n.id}
+                      className="border border-slate-200 rounded p-2 bg-slate-50"
+                    >
+                      <div className="text-xs text-slate-500 mb-0.5">
+                        {n.source} · {formatTimestamp(n.created_at)}
+                      </div>
+                      <div className="text-sm text-slate-700">{n.text}</div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Disclaimer */}
+            <div className="bg-amber-50 border border-amber-200 rounded p-3 text-xs text-amber-800 leading-relaxed">
+              {retrofitData.disclaimer}
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   );

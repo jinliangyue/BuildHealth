@@ -262,4 +262,5 @@ def test_api_root_returns_project_info(client):
     assert r.status_code == 200
     data = r.json()
     assert data["project"] == "BuildHealth"
-    assert "Phase 1" in data["phase"]
+    # V2 起 phase 变为 "Phase 4 - V2 Retrofit Decision Support"
+    assert "Phase" in data["phase"]
