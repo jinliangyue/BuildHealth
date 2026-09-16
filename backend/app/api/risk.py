@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.db import models as m
+from app.analytics.config import RISK_CLASSIFICATION_VERSION
 from app.schemas.api import RiskAlertRead, RiskClassificationRead
 from app.services import assessment as svc
 
@@ -49,6 +50,7 @@ def get_risk(building_id: int, db: Session = Depends(get_db)):
         "n_high": cls["n_high"],
         "n_medium": cls["n_medium"],
         "n_low": cls["n_low"],
+        "calculation_version": RISK_CLASSIFICATION_VERSION,
     }
 
 

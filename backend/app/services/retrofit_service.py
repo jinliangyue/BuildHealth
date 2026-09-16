@@ -42,25 +42,37 @@ def _get_recent_values_by_sensor(
     window_days: int = RULE_RECENT_WINDOW_DAYS,
     limit: int = RULE_RECENT_VALUES_LIMIT,
 ) -> Dict[int, List[Dict[str, Any]]]:
-    """对每个传感器拉取最近 window_days 天内最近 limit 条记录."""
+    """
+    对每个传感器拉取最近 window_days 天内最近 limit 条记录。
+
+    用一条查询读入全部候选记录，再在内存里按传感器分组取尾部 limit 条，
+    而不是每个传感器发一条查询。输出与逐传感器查询完全一致（升序）。
+    """
     from datetime import datetime, timedelta
 
     cutoff = datetime.utcnow() - timedelta(days=window_days)
-    result: Dict[int, List[Dict[str, Any]]] = {}
-    for s in sensors:
-        rows = (
-            session.query(m.MonitoringRecord)
-            .filter(m.MonitoringRecord.sensor_id == s.id)
-            .filter(m.MonitoringRecord.timestamp >= cutoff)
-            .order_by(m.MonitoringRecord.timestamp.desc())
-            .limit(limit)
-            .all()
-        )
-        # 升序给上游
-        rows = list(reversed(rows))
-        result[s.id] = [
-            {"timestamp": r.timestamp.isoformat(), "value": r.value}
-            for r in rows
+    result: Dict[int, List[Dict[str, Any]]] = {s.id: [] for s in sensors}
+    if not sensors:
+        return result
+
+    sensor_ids = [s.id for s in sensors]
+    rows = (
+        session.query(m.MonitoringRecord)
+        .filter(m.MonitoringRecord.sensor_id.in_(sensor_ids))
+        .filter(m.MonitoringRecord.timestamp >= cutoff)
+        .order_by(m.MonitoringRecord.timestamp)
+        .all()
+    )
+    # 升序遍历，每个传感器只保留最后 limit 条（等价于 desc + limit 后反转）
+    for r in rows:
+        bucket = result.setdefault(r.sensor_id, [])
+        bucket.append(r)
+        if len(bucket) > limit:
+            del bucket[0]
+
+    for sid, recs in result.items():
+        result[sid] = [
+            {"timestamp": r.timestamp.isoformat(), "value": r.value} for r in recs
         ]
     return result
 
@@ -146,17 +158,23 @@ def generate_recommendations(
     )
     sensors_by_metric = _sensors_by_metric(sensors)
 
-    # 拉 health + risk + anomalies
-    anomalies = assessment_svc.run_anomaly_detection(session, building_id)
-    health = assessment_svc.compute_health_assessment(session, building, anomalies)
+    # 一次读入本建筑全部监测序列，供异常检测 / BHI / trend score 共用。
+    # 此前这三处各自重复查询同一批序列（3× 读放大）。
+    series_map = assessment_svc.get_building_series_map(session, building_id)
+
+    # 拉 health + risk + anomalies（复用已读入的 sensors 与 series_map）
+    anomalies = assessment_svc.run_anomaly_detection(
+        session, building_id, sensors=sensors, series_map=series_map
+    )
+    health = assessment_svc.compute_health_assessment(
+        session, building, anomalies, series_map=series_map
+    )
     risk = assessment_svc.classify_risk_for_building(health["score"], anomalies, building_id)
 
-    # 计算 trend score
-    sensor_series_by_metric: Dict[str, List] = {}
-    for metric, slist in sensors_by_metric.items():
-        # 使用 get_metric_series 得到全部历史, 给 trend score
-        series = assessment_svc.get_metric_series(session, building_id, metric)
-        sensor_series_by_metric[metric] = series
+    # 计算 trend score（复用同一份序列，不再重复查询）
+    sensor_series_by_metric: Dict[str, List] = {
+        metric: series_map.get(metric, []) for metric in sensors_by_metric
+    }
     trend_score = pri.compute_trend_score(sensor_series_by_metric)
 
     # 拉 recent values 给 rule 的 evidence

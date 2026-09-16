@@ -28,11 +28,45 @@ from app.ai.schemas import (
     AIResponse,
     EngineeringContext,
 )
+from app.ai.redlines import scan_response_for_redlines
+from app.ai.schemas import AIProviderError
 from app.core.config import AI_DISCLAIMER, AI_VERSION, AI_MODEL
 
 
 class MockProvider:
     name = "mock"
+
+    # ------------------------------------------------------------------
+    # Safety gate (mirrors OpenAICompatibleProvider)
+    # ------------------------------------------------------------------
+    def _guard_safety(self, response: AIResponse) -> AIResponse:
+        """
+        Runtime redline gate, identical in effect to the real provider's.
+
+        The mock composes text from templates, but it interpolates database
+        values (building name, metric labels, risk level, explanations). If any
+        of those ever carried a forbidden phrase, the response must not be
+        served — the same rule the real provider enforces. Without this, mock
+        and real providers would not behave consistently.
+        """
+        forbidden = scan_response_for_redlines(
+            answer=response.answer,
+            key_findings_text=" ".join(
+                f"{kf.title} {kf.description}" for kf in response.key_findings
+            ),
+            recommended_actions_text=" ".join(
+                f"{a.action} {a.reason}" for a in response.recommended_actions
+            ),
+            evidence_descriptions=" ".join(
+                e.description for e in response.evidence
+            ),
+        )
+        if forbidden:
+            raise AIProviderError(
+                "safety_violation",
+                f"mock response contained forbidden phrase(s): {forbidden[:3]}",
+            )
+        return response
     model = AI_MODEL  # "mock-deterministic-v1"
 
     def health_check(self) -> AIHealthStatus:
@@ -194,7 +228,7 @@ class MockProvider:
                 )
             )
 
-        return AIResponse(
+        return self._guard_safety(AIResponse(
             answer=answer,
             key_findings=key_findings,
             evidence=context.evidence_chain,
@@ -205,7 +239,7 @@ class MockProvider:
             model=self.model,
             calculation_version=AI_VERSION,
             created_at=datetime.utcnow(),
-        )
+        ))
 
     # ------------------------------------------------------------------
     # Answer (问题路由)
@@ -277,7 +311,7 @@ class MockProvider:
                 )
             )
 
-        return AIResponse(
+        return self._guard_safety(AIResponse(
             answer=answer,
             key_findings=key_findings,
             evidence=context.evidence_chain,
@@ -294,7 +328,7 @@ class MockProvider:
             model=self.model,
             calculation_version=AI_VERSION,
             created_at=datetime.utcnow(),
-        )
+        ))
 
     def _explain_retrofit(
         self,
@@ -360,7 +394,7 @@ class MockProvider:
                 )
             )
 
-        return AIResponse(
+        return self._guard_safety(AIResponse(
             answer=answer,
             key_findings=key_findings,
             evidence=context.evidence_chain,
@@ -371,7 +405,7 @@ class MockProvider:
             model=self.model,
             calculation_version=AI_VERSION,
             created_at=datetime.utcnow(),
-        )
+        ))
 
     def _explain_anomaly(
         self,
@@ -445,7 +479,7 @@ class MockProvider:
             ),
         ]
 
-        return AIResponse(
+        return self._guard_safety(AIResponse(
             answer=answer,
             key_findings=key_findings,
             evidence=context.evidence_chain,
@@ -456,4 +490,4 @@ class MockProvider:
             model=self.model,
             calculation_version=AI_VERSION,
             created_at=datetime.utcnow(),
-        )
+        ))

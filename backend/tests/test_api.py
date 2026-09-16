@@ -181,6 +181,9 @@ def test_api_risk(client, test_engine):
     assert data["risk_level"] in {"Normal", "Attention", "Abnormal", "HighRisk"}
     assert "Prototype Risk Classification" in data["explanation"]
     assert 0 <= data["bhi"] <= 100
+    # traceability: the tier is a prototype parameter set and must carry its
+    # version, like BHI / RP / REC / AI already do
+    assert data["calculation_version"] == "RISK-v1.0"
 
 
 def test_api_dashboard_summary(client, test_engine):

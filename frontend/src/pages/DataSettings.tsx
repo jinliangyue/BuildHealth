@@ -1,14 +1,21 @@
 /**
  * Data / Settings · 数据源 + Prototype Parameters + 免责声明
+ *
+ * 参数优先从 GET /api/engineering-parameters 读取（后端 analytics/config.py
+ * 是唯一来源）。接口不可用时回退到本地常量并在页面上明示，回退值由
+ * backend/tests/test_frontend_parameter_consistency.py 锁定与引擎一致。
  */
 import TopBar from "../components/layout/TopBar";
-import { Card } from "../components/ui/StateViews";
+import { Card, LoadingState, ErrorState } from "../components/ui/StateViews";
+import { parametersApi } from "../api/parameters";
+import { useApi } from "../hooks/useApi";
 import {
+  BHI_RISK_BANDS,
   BHI_WEIGHTS,
   DETECTION_THRESHOLDS,
   DIMENSION_LABELS,
   RISK_LEVEL_COLORS,
-  bhiRiskBandLabel,
+  THRESHOLD_DISPLAY_DECIMALS,
   formatThreshold,
   type RiskLevel,
 } from "../types/api";
@@ -20,13 +27,101 @@ const RISK_LEVEL_ORDER: RiskLevel[] = [
   "HighRisk",
 ];
 
+interface BandRow {
+  level: string;
+  min: number;
+  max: number;
+}
+
+interface ThresholdRow {
+  metric: string;
+  medium: number | null;
+  high: number | null;
+  unit: string;
+  decimals: number;
+}
+
 export default function DataSettings() {
+  const { data: params, loading, error } = useApi(() => parametersApi.get());
+
+  // 正常来源 = API；失败时回退到本地常量（纯 UI fallback）
+  const bhiWeights = params?.bhi_weights ?? BHI_WEIGHTS;
+
+  const riskBands: BandRow[] =
+    params?.bhi_risk_bands ??
+    RISK_LEVEL_ORDER.map((level) => ({
+      level,
+      min: BHI_RISK_BANDS[level].min,
+      max: BHI_RISK_BANDS[level].max,
+    }));
+
+  const detectionThresholds: ThresholdRow[] =
+    params?.detection_thresholds.map((t) => ({
+      metric: t.metric,
+      medium: t.medium,
+      high: t.high,
+      unit: t.unit,
+      decimals: THRESHOLD_DISPLAY_DECIMALS[t.metric] ?? 2,
+    })) ??
+    DETECTION_THRESHOLDS.map((t) => ({
+      metric: t.metric,
+      medium: t.medium,
+      high: t.high,
+      unit: t.unit,
+      decimals: t.decimals,
+    }));
+
+  const versions = params?.calculation_versions;
+
+  const riskColor = (level: string): string =>
+    RISK_LEVEL_COLORS[level as RiskLevel] ?? "#94A3B8";
+
+  const bandLabel = (b: BandRow): string => `${b.min}-${b.max}`;
+
   return (
     <div className="max-w-5xl mx-auto space-y-5">
       <TopBar
         title="Data & Settings"
         subtitle="Data source disclosure · prototype parameters · engineering disclaimer"
       />
+
+      {/* 参数来源 */}
+      <Card
+        title="Parameter Source"
+        subtitle="Prototype configuration · served read-only from the analytics engine"
+      >
+        {loading && <LoadingState label="Loading parameters…" />}
+        {!loading && error && (
+          <>
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="px-2 py-0.5 bg-amber-50 border border-amber-300 text-amber-800 rounded font-medium">
+                Fallback · built-in copy
+              </span>
+            </div>
+            <ErrorState message={error} />
+            <p className="text-xs text-amber-700 mt-2">
+              Falling back to the built-in parameter copy. Values are still the
+              prototype parameters, but the live source is unavailable.
+            </p>
+          </>
+        )}
+        {!loading && !error && (
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="px-2 py-0.5 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded font-medium">
+              Live from API
+            </span>
+            {versions &&
+              Object.entries(versions).map(([k, v]) => (
+                <span
+                  key={k}
+                  className="px-2 py-0.5 bg-slate-100 border border-slate-200 text-slate-700 rounded font-mono"
+                >
+                  {k}: {v}
+                </span>
+              ))}
+          </div>
+        )}
+      </Card>
 
       {/* 数据源 */}
       <Card title="Data Source" subtitle="Phase 2 · Read-only display">
@@ -66,12 +161,12 @@ export default function DataSettings() {
             </tr>
           </thead>
           <tbody>
-            {(Object.keys(BHI_WEIGHTS) as Array<keyof typeof BHI_WEIGHTS>).map(
+            {(Object.keys(bhiWeights) as Array<keyof typeof BHI_WEIGHTS>).map(
               (k) => (
                 <tr key={k}>
                   <td>{DIMENSION_LABELS[k]}</td>
                   <td className="text-right font-mono">
-                    {(BHI_WEIGHTS[k] * 100).toFixed(0)}%
+                    {(bhiWeights[k] * 100).toFixed(0)}%
                   </td>
                   <td className="text-xs text-slate-500">
                     {k === "structural_safety"
@@ -112,18 +207,18 @@ export default function DataSettings() {
             </tr>
           </thead>
           <tbody>
-            {RISK_LEVEL_ORDER.map((level) => (
-              <tr key={level}>
-                <td className="font-medium">{level}</td>
-                <td className="font-mono">{bhiRiskBandLabel(level)}</td>
+            {riskBands.map((band) => (
+              <tr key={band.level}>
+                <td className="font-medium">{band.level}</td>
+                <td className="font-mono">{bandLabel(band)}</td>
                 <td>
                   <div className="flex items-center gap-2">
                     <span
                       className="w-4 h-4 rounded"
-                      style={{ background: RISK_LEVEL_COLORS[level] }}
+                      style={{ background: riskColor(band.level) }}
                     />
                     <span className="font-mono text-xs text-slate-500">
-                      {RISK_LEVEL_COLORS[level]}
+                      {riskColor(band.level)}
                     </span>
                   </div>
                 </td>
@@ -155,10 +250,12 @@ export default function DataSettings() {
               <td className="font-medium">Threshold Detection</td>
               <td className="text-xs">Absolute value comparison</td>
               <td className="font-mono text-xs">
-                {DETECTION_THRESHOLDS.map(
-                  (t) =>
-                    `${t.metric} (M:${formatThreshold(t.medium, t.unit, t.decimals)} H:${formatThreshold(t.high, t.unit, t.decimals)})`,
-                ).join(" · ")}
+                {detectionThresholds
+                  .map(
+                    (t) =>
+                      `${t.metric} (M:${formatThreshold(t.medium, t.unit, t.decimals)} H:${formatThreshold(t.high, t.unit, t.decimals)})`,
+                  )
+                  .join(" · ")}
               </td>
             </tr>
             <tr>

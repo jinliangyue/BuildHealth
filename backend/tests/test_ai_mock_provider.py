@@ -227,3 +227,31 @@ def test_answer_strips_whitespace(full_context):
     r1 = p.generate_answer(full_context, "  summarize  ")
     r2 = p.generate_answer(full_context, "summarize")
     assert r1.answer == r2.answer
+
+
+# ============ Runtime redline gate (Phase 6B parity with real provider) ============
+def test_mock_provider_runtime_redline_gate_blocks_forbidden_output(full_context):
+    """
+    The mock composes text from templates but interpolates database values.
+    A forbidden phrase arriving through that data must be blocked at runtime,
+    exactly as the real provider blocks it — otherwise the two providers do
+    not behave consistently on safety.
+    """
+    from app.ai.schemas import AIProviderError
+
+    provider = MockProvider()
+    # simulate a database value carrying a banned phrase
+    full_context.building.name = "Tower (this building is safe)"
+
+    with pytest.raises(AIProviderError) as exc:
+        provider.generate_summary(full_context)
+
+    assert exc.value.code == "safety_violation"
+
+
+def test_mock_provider_runtime_gate_allows_normal_output(full_context):
+    """The gate must not fire on ordinary interpolated data."""
+    provider = MockProvider()
+    resp = provider.generate_summary(full_context)
+    assert resp.disclaimer
+    assert resp.provider == "mock"

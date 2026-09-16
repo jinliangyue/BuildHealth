@@ -88,6 +88,8 @@ export interface RiskClassification {
   n_high: number;
   n_medium: number;
   n_low: number;
+  /** Prototype Risk Classification version (e.g. "RISK-v1.0"). */
+  calculation_version?: string;
 }
 
 export interface RiskDistribution {
@@ -227,6 +229,55 @@ export function formatThreshold(
   if (value === null) return "—";
   return `${value.toFixed(decimals)} ${unit}`;
 }
+
+/**
+ * Engineering Parameters API (read-only)
+ * ======================================
+ * Served by GET /api/engineering-parameters from backend/app/analytics/config.py.
+ * This is the NORMAL data source for the parameter tables. The constants above
+ * are a pure-UI fallback for the case where the endpoint is unreachable; they
+ * are not meant to be the source of truth and are guarded by
+ * backend/tests/test_frontend_parameter_consistency.py.
+ *
+ * The frontend renders these values and never recomputes engineering results
+ * from them — risk level and priority level always come from the API.
+ */
+export interface EngineeringParameterBand {
+  level: string;
+  min: number;
+  max: number;
+}
+
+export interface EngineeringDetectionThreshold {
+  metric: string;
+  medium: number | null;
+  high: number | null;
+  low: number | null;
+  unit: string;
+  direction: string;
+}
+
+export interface EngineeringParameters {
+  calculation_versions: Record<string, string>;
+  bhi_weights: Record<string, number>;
+  bhi_risk_bands: EngineeringParameterBand[];
+  retrofit_priority_bands: EngineeringParameterBand[];
+  retrofit_priority_weights: Record<string, number>;
+  detection_thresholds: EngineeringDetectionThreshold[];
+  notice: string;
+}
+
+/**
+ * Presentation-only: decimal places per metric when rendering thresholds.
+ * This is formatting, not engineering data, so it stays on the frontend.
+ */
+export const THRESHOLD_DISPLAY_DECIMALS: Record<string, number> = {
+  crack_width: 2,
+  tilt: 1,
+  temperature: 0,
+  humidity: 0,
+  electricity: 0,
+};
 
 export const METRIC_LABELS: Record<Metric, string> = {
   crack_width: "Crack Width",

@@ -66,6 +66,7 @@ def health_check():
 from app.api import buildings, sensors, monitoring, health, risk, dashboard
 from app.api import retrofit as retrofit_api
 from app.api import ai as ai_api
+from app.api import parameters as parameters_api
 
 app.include_router(buildings.router, prefix="/api")
 app.include_router(sensors.router, prefix="/api")
@@ -75,6 +76,7 @@ app.include_router(risk.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(retrofit_api.router, prefix="/api")
 app.include_router(ai_api.router, prefix="/api")
+app.include_router(parameters_api.router, prefix="/api")
 
 
 if __name__ == "__main__":

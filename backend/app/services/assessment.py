@@ -31,15 +31,141 @@ def get_metric_series(
     return [(rec.MonitoringRecord.timestamp, rec.MonitoringRecord.value) for rec in records]
 
 
-def run_anomaly_detection(session: Session, building_id: int) -> List[Dict]:
+def get_building_series_map(
+    session: Session, building_id: int
+) -> Dict[str, List[Tuple[datetime, float]]]:
+    """
+    拉取一栋建筑**全部** metric 的历史序列，只发一条查询。
+
+    返回 {sensor_type: [(timestamp, value), ...]}，每条序列按时间升序 ——
+    与逐 metric 调用 get_metric_series() 的内容和顺序完全一致，
+    但把 N 条查询压成 1 条。
+
+    调用方用 series_map.get(metric, []) 取值：某个 metric 没有记录时
+    get_metric_series() 返回空列表，这里对应「键不存在」。
+    """
+    rows = (
+        session.query(
+            m.Sensor.sensor_type,
+            m.MonitoringRecord.timestamp,
+            m.MonitoringRecord.value,
+        )
+        .join(m.Sensor, m.MonitoringRecord.sensor_id == m.Sensor.id)
+        .filter(m.Sensor.building_id == building_id)
+        .order_by(m.MonitoringRecord.timestamp)
+        .all()
+    )
+    series_map: Dict[str, List[Tuple[datetime, float]]] = {}
+    for sensor_type, ts, value in rows:
+        series_map.setdefault(sensor_type, []).append((ts, value))
+    return series_map
+
+
+def load_sensors_by_building(
+    session: Session, building_ids: List[int]
+) -> Dict[int, List[m.Sensor]]:
+    """
+    一次读入多栋建筑的传感器，按 building_id 分组。
+    用于聚合接口，替代「每栋建筑查一次传感器」的循环。
+    """
+    if not building_ids:
+        return {}
+    rows = (
+        session.query(m.Sensor)
+        .filter(m.Sensor.building_id.in_(building_ids))
+        .order_by(m.Sensor.id)
+        .all()
+    )
+    out: Dict[int, List[m.Sensor]] = {bid: [] for bid in building_ids}
+    for s in rows:
+        out.setdefault(s.building_id, []).append(s)
+    return out
+
+
+def load_series_map_by_building(
+    session: Session, building_ids: List[int]
+) -> Dict[int, Dict[str, List[Tuple[datetime, float]]]]:
+    """
+    一次读入多栋建筑的**全部**监测序列，按 building_id -> sensor_type 分组。
+    每条序列按时间升序，与 get_building_series_map() 逐栋调用的结果一致。
+    """
+    if not building_ids:
+        return {}
+    rows = (
+        session.query(
+            m.Sensor.building_id,
+            m.Sensor.sensor_type,
+            m.MonitoringRecord.timestamp,
+            m.MonitoringRecord.value,
+        )
+        .join(m.Sensor, m.MonitoringRecord.sensor_id == m.Sensor.id)
+        .filter(m.Sensor.building_id.in_(building_ids))
+        .order_by(m.MonitoringRecord.timestamp)
+        .all()
+    )
+    out: Dict[int, Dict[str, List[Tuple[datetime, float]]]] = {}
+    for bid, sensor_type, ts, value in rows:
+        out.setdefault(bid, {}).setdefault(sensor_type, []).append((ts, value))
+    return out
+
+
+def get_latest_assessments(
+    session: Session, building_ids: Optional[List[int]] = None
+) -> Dict[int, m.HealthAssessment]:
+    """
+    一次读入每栋建筑最新一次 HealthAssessment，替代逐建筑查询。
+
+    返回 {building_id: HealthAssessment}。同一 created_at 出现多条时取 id
+    最大的一条，保证结果确定。
+    """
+    subq = (
+        session.query(
+            m.HealthAssessment.building_id.label("building_id"),
+            func.max(m.HealthAssessment.created_at).label("max_created"),
+        )
+        .group_by(m.HealthAssessment.building_id)
+        .subquery()
+    )
+    q = session.query(m.HealthAssessment).join(
+        subq,
+        (m.HealthAssessment.building_id == subq.c.building_id)
+        & (m.HealthAssessment.created_at == subq.c.max_created),
+    )
+    if building_ids is not None:
+        if not building_ids:
+            return {}
+        q = q.filter(m.HealthAssessment.building_id.in_(building_ids))
+    out: Dict[int, m.HealthAssessment] = {}
+    for a in q.all():
+        prev = out.get(a.building_id)
+        if prev is None or a.id > prev.id:
+            out[a.building_id] = a
+    return out
+
+
+def run_anomaly_detection(
+    session: Session,
+    building_id: int,
+    sensors: Optional[List[m.Sensor]] = None,
+    series_map: Optional[Dict[str, List[Tuple[datetime, float]]]] = None,
+) -> List[Dict]:
     """
     对一栋建筑的全部传感器跑 3 种异常检测，返回 anomaly 字典列表。
     不写库——纯计算层。service 调用方决定是否落库。
+
+    sensors / series_map 为可选预加载入参，供聚合调用方复用已读数据，
+    避免同一栋建筑的传感器与监测序列被反复查询。传 None 时行为与
+    之前完全一致（自行查询）。
     """
-    sensors = session.query(m.Sensor).filter(m.Sensor.building_id == building_id).all()
+    if sensors is None:
+        sensors = (
+            session.query(m.Sensor).filter(m.Sensor.building_id == building_id).all()
+        )
+    if series_map is None:
+        series_map = get_building_series_map(session, building_id)
     all_anomalies: List[Dict] = []
     for s in sensors:
-        series = get_metric_series(session, building_id, s.sensor_type)
+        series = series_map.get(s.sensor_type, [])
         if not series:
             continue
         seen_sigs: Dict[Tuple, datetime] = {}
@@ -81,8 +207,14 @@ def compute_health_assessment(
     session: Session,
     building: m.Building,
     anomalies: List[Dict],
+    series_map: Optional[Dict[str, List[Tuple[datetime, float]]]] = None,
 ) -> Dict:
-    """基于建筑 + 异常列表 + 监测数据计算 BHI（不写库）。"""
+    """
+    基于建筑 + 异常列表 + 监测数据计算 BHI（不写库）。
+
+    series_map 为可选预加载入参，聚合调用方复用时避免重复读取同一栋
+    建筑的监测序列。传 None 时行为与之前完全一致。
+    """
     n_high = sum(1 for a in anomalies if a["severity"] == "high")
     n_medium = sum(1 for a in anomalies if a["severity"] == "medium")
     n_low = sum(1 for a in anomalies if a["severity"] == "low")
@@ -90,9 +222,12 @@ def compute_health_assessment(
     structural = ha.score_structural_from_anomalies(n_high, n_medium, n_low)
     facility = ha.score_facility_from_age(building.current_age, building.design_life)
 
-    temp_vals = [v for _, v in get_metric_series(session, building.id, "temperature")]
-    hum_vals = [v for _, v in get_metric_series(session, building.id, "humidity")]
-    elec_vals = [v for _, v in get_metric_series(session, building.id, "electricity")]
+    if series_map is None:
+        series_map = get_building_series_map(session, building.id)
+
+    temp_vals = [v for _, v in series_map.get("temperature", [])]
+    hum_vals = [v for _, v in series_map.get("humidity", [])]
+    elec_vals = [v for _, v in series_map.get("electricity", [])]
 
     environment = ha.score_environment_from_series(temp_vals, hum_vals)
     energy = ha.score_energy_from_series(elec_vals)
@@ -148,21 +283,29 @@ def get_buildings_overview(session: Session) -> List[Dict]:
     """
     Batch API: 一栋建筑只访问一次完整链路（health + risk + alert count）。
     单建筑内部异常被隔离，不会让整个 endpoint 失败。
+
+    数据读入为固定次数的批量查询（建筑 / 最新评估 / 传感器 / 监测序列各一次），
+    不再随建筑数量线性增长；单建筑的计算仍在内存中逐栋进行。
     """
     buildings = session.query(m.Building).order_by(m.Building.id).all()
+    building_ids = [b.id for b in buildings]
+    latest_map = get_latest_assessments(session, building_ids)
+    sensors_by_building = load_sensors_by_building(session, building_ids)
+    series_by_building = load_series_map_by_building(session, building_ids)
+
     items: List[Dict] = []
     for b in buildings:
         item = {"building": b, "health": None, "risk": None, "active_alert_count": 0}
         try:
-            latest = (
-                session.query(m.HealthAssessment)
-                .filter(m.HealthAssessment.building_id == b.id)
-                .order_by(m.HealthAssessment.created_at.desc())
-                .first()
-            )
+            latest = latest_map.get(b.id)
             if latest:
                 item["health"] = latest
-                anomalies = run_anomaly_detection(session, b.id)
+                anomalies = run_anomaly_detection(
+                    session,
+                    b.id,
+                    sensors=sensors_by_building.get(b.id, []),
+                    series_map=series_by_building.get(b.id, {}),
+                )
                 cls = classify_risk_for_building(latest.score, anomalies, building_id=b.id)
                 item["risk"] = cls
                 item["active_alert_count"] = sum(
@@ -198,37 +341,35 @@ def get_dashboard_summary(session: Session) -> Dict:
         or 0
     )
 
-    # 4. average_health_score（取最新一次评估的平均）
-    latest_assessments = []
-    for b in buildings:
-        latest = (
-            session.query(m.HealthAssessment)
-            .filter(m.HealthAssessment.building_id == b.id)
-            .order_by(m.HealthAssessment.created_at.desc())
-            .first()
-        )
-        if latest:
-            latest_assessments.append(latest.score)
+    # 4+5. 最新评估一次读入，同时驱动 average_health_score 与 risk_distribution
+    #      （此前每个 building 各查两次，是纯粹的重复查询）
+    building_ids = [b.id for b in buildings]
+    latest_map = get_latest_assessments(session, building_ids)
+    sensors_by_building = load_sensors_by_building(session, building_ids)
+    series_by_building = load_series_map_by_building(session, building_ids)
+
+    latest_assessments = [
+        latest_map[b.id].score for b in buildings if b.id in latest_map
+    ]
     average_health_score = (
         round(sum(latest_assessments) / len(latest_assessments), 2)
         if latest_assessments
         else 0.0
     )
 
-    # 5. risk_distribution（基于最新评估 + 最新 alerts 重算分类）
     distribution = {"Normal": 0, "Attention": 0, "Abnormal": 0, "HighRisk": 0}
     ranking = []
     for b in buildings:
-        latest_assessment = (
-            session.query(m.HealthAssessment)
-            .filter(m.HealthAssessment.building_id == b.id)
-            .order_by(m.HealthAssessment.created_at.desc())
-            .first()
-        )
+        latest_assessment = latest_map.get(b.id)
         if not latest_assessment:
             continue
         # 重新跑异常检测（用最新数据）
-        anomalies = run_anomaly_detection(session, b.id)
+        anomalies = run_anomaly_detection(
+            session,
+            b.id,
+            sensors=sensors_by_building.get(b.id, []),
+            series_map=series_by_building.get(b.id, {}),
+        )
         cls = classify_risk_for_building(latest_assessment.score, anomalies)
         distribution[cls["risk_level"]] += 1
         ranking.append(

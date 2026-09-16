@@ -113,6 +113,10 @@ class RiskClassificationRead(BaseModel):
     n_high: int
     n_medium: int
     n_low: int
+    # Prototype Risk Classification version (RISK-v1.0). Additive field:
+    # the tier is a prototype parameter set, so it carries its version like
+    # BHI / RP / REC / AI already do.
+    calculation_version: str = "RISK-v1.0"
 
 
 # ===================== Dashboard =====================
@@ -264,3 +268,36 @@ class RetrofitOverviewResponse(BaseModel):
     average_priority: float
     calculation_version: str
     disclaimer: str
+
+
+# ===================== Engineering Parameters (read-only) =====================
+# Prototype configuration exposed for display. These values come from
+# app/analytics/config.py; the frontend must not re-derive engineering logic
+# from them — it only renders them.
+
+
+class EngineeringParameterBand(BaseModel):
+    level: str
+    min: int
+    max: int
+
+
+class EngineeringDetectionThreshold(BaseModel):
+    metric: str
+    medium: Optional[float] = None
+    high: Optional[float] = None
+    low: Optional[float] = None
+    unit: str
+    direction: str
+
+
+class EngineeringParametersResponse(BaseModel):
+    """Read-only prototype parameters. Versioned via calculation_versions."""
+
+    calculation_versions: Dict[str, str]
+    bhi_weights: Dict[str, float]
+    bhi_risk_bands: List[EngineeringParameterBand]
+    retrofit_priority_bands: List[EngineeringParameterBand]
+    retrofit_priority_weights: Dict[str, float]
+    detection_thresholds: List[EngineeringDetectionThreshold]
+    notice: str

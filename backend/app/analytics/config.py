@@ -97,6 +97,23 @@ BHI_WEIGHTS: Dict[str, float] = {
 
 BHI_CALCULATION_VERSION = "BHI-v1.0"
 
+# BHI → 风险档位的边界表（展示 / API 用）。
+# 真正的分档逻辑在 analytics/risk.py::classify_risk（含 HIGH 异常覆盖规则）。
+# 这张表是它的参数化描述：tests/test_engineering_parameters_api.py 会用
+# classify_risk 的**实际行为**逐边界校验两者一致，改一边不改另一边会失败。
+BHI_RISK_BANDS: List[dict] = [
+    {"level": "Normal", "min": 90, "max": 100},
+    {"level": "Attention", "min": 75, "max": 89},
+    {"level": "Abnormal", "min": 60, "max": 74},
+    {"level": "HighRisk", "min": 0, "max": 59},
+]
+
+# 风险分级与异常检测的版本标识。
+# 其他各层（BHI / RP / REC / AI）都有自己的 version 并随响应返回；
+# 这两层此前没有，导致旧的风险结论与告警无法反查是按哪版参数产生的。
+RISK_CLASSIFICATION_VERSION = "RISK-v1.0"
+ANOMALY_DETECTION_VERSION = "ANOM-v1.0"
+
 
 # =================================================================
 # Retrofit Priority (RP-v1.0) · Phase 4 V2
