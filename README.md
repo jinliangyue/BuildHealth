@@ -3,6 +3,44 @@
 > 既有建筑健康监测与智能更新决策平台
 > Existing Building Health Monitoring & Intelligent Retrofit Decision Platform
 
+**土木工程 × 工程数据 × AI 数字化 × 工程决策支持**
+
+BuildHealth 不是聊天机器人，也不是智能家居项目。它解决的是一个具体的
+工程问题：结构检测依赖人工、成本高、周期长；监测系统能持续采集数据，
+但原始数值本身不构成决策依据。中间缺一层**可解释、可复现、边界清晰的
+工程分析层**。这个项目实现的就是这一层。
+
+## 工程问题
+
+| 现状 | 缺口 |
+|---|---|
+| 既有建筑存量持续增长 | 人工检测成本高、频次低 |
+| 监测系统能持续采集数据 | 原始数值直接给人看，不构成决策依据 |
+| 工程判断依赖资深工程师 | 经验难沉淀、难规模化 |
+| AI 能生成自然语言 | 但不能让它参与工程计算，也不能让它下结论 |
+
+BuildHealth 的答案是：**确定性工程算法负责算，AI 负责解释**，两者严格分层，
+且 AI 层被红线约束住。
+
+## 核心工作流
+
+```
+监测数据 (裂缝宽度 / 倾斜 / 温湿度 / 用电)
+        ↓
+异常检测 (阈值 · 变化率 · Z-score 三方法并行 → 按严重度去重)
+        ↓
+BHI 健康评分 (0-100 · 5 维度加权)
+        ↓
+风险分级 (4 档 · HIGH 异常覆盖规则)
+        ↓
+改造决策 (RP-v1.0 优先级 + REC-v1.0 建议规则 → 证据链)
+        ↓
+AI 解释层 (只读上述结果 + 检索项目内部知识库 → 自然语言解释)
+```
+
+关键约束：**数据单向流动**。工程数值全部由后端算法产出，AI 不能修改、
+不能编造、不能下最终结论。AI 输出的免责声明会被后端强制覆盖。
+
 ## 当前状态
 
 **Phase 6B — Engineering Knowledge RAG & Evidence Grounding（已完成）**
@@ -64,6 +102,49 @@ React + TypeScript + ECharts
 - ✗ Conversation (Phase 6C 留)
 - ✗ Vector DB / embedding / 语义检索 (不在路线内)
 - ✗ 互联网知识爬取 (不在路线内)
+
+## 工程分析方法
+
+全部参数集中在 `backend/app/analytics/config.py`，版本化并在文档中引用。
+这些是 **Prototype Design Parameters**，不是国家或行业标准。
+
+### 异常检测（3 种方法并行）
+
+| 方法 | 作用 | 参数 |
+|---|---|---|
+| Threshold | 抓绝对值突变 | crack_width 0.20/0.30 mm · tilt 3.0/4.0 ‰ · temperature 40 ℃ · humidity 85 % |
+| Rate of Change | 抓持续发展 | 各指标独立的绝对变化量与相对百分比阈值 |
+| Z-score | 抓偏离历史统计规律 | 7 天滚动窗口 · \|z\| > 4 异常 · \|z\| > 6 为 HIGH · 对用电/湿度关闭 |
+
+三种检出按 `(sensor, metric, method, severity)` 去重后合并，避免同一事件重复告警。
+
+### BHI 健康评分（BHI-v1.0）
+
+`BHI = Σ (维度分 × 权重)`，范围 [0, 100]：
+
+| 维度 | 权重 | 输入来源 |
+|---|---|---|
+| Structural Safety | 0.40 | 结构类异常（裂缝、倾斜） |
+| Facility Condition | 0.20 | 设备与构件状态 |
+| Environmental Quality | 0.15 | 温湿度稳定性 |
+| Energy Performance | 0.10 | 用电变异系数 |
+| Fire Safety | 0.15 | 消防安全维度 |
+
+维度分超出 [0, 100] 会直接报错，不会被静默截断。
+
+### 风险分级（4 档）
+
+`BHI ≥ 90` Normal · `≥ 75` Attention · `≥ 60` Abnormal · `< 60` HighRisk。
+
+覆盖规则：只要存在 HIGH 严重度异常，最低升级为 Attention。
+这是保守方向的设计 —— 宁可多提醒，不会漏报。
+
+### 改造决策（V2）
+
+- **RP-v1.0**：5 个子分加权成 0-100 优先级，分档 Low / Medium / High / Very High
+- **REC-v1.0**：规则引擎按类目生成改造建议，带成本等级与紧急度
+- **证据链**：每条建议可回溯到触发它的传感器、异常与 BHI 维度
+- 建议为**实时计算**，不落库（`retrofit_recommendations` 表保留但当前未使用）
 
 ## 工程知识库 (Phase 6B)
 
@@ -177,6 +258,10 @@ Vite 已配置 `/api` proxy 自动转发到 `http://localhost:8000`。
 ### V3.2 (Phase 6B)
 - `19_Engineering_RAG.md` · **Engineering Knowledge Base + RAG + Evidence Grounding (implemented)**
 
+### 工程强化 (Overnight Sprint)
+- `22_Overnight_Engineering_Sprint.md` · 工程质量审计与修复记录
+- `23_Project_Demo_Guide.md` · **演示脚本 · 30 秒 / 1 分钟 / 3 分钟版本 + 面试问答要点**
+
 ## 重要声明 (Engineering Disclaimer)
 
 - **数据来源**: 全部为 `Simulated Data`（前端右下角常驻水印）
@@ -253,14 +338,46 @@ Vite 已配置 `/api` proxy 自动转发到 `http://localhost:8000`。
 | POST `/api/ai/buildings/{id}/summary` | 200 | 503 + body.detail.provider_error=config_error |
 | POST `/api/ai/buildings/{id}/ask` | 200 | 503 |
 
-**测试统计 (Phase 6B 最终验收 · 2026-09-16):**
-- Backend: **371 tests passed** (V1 76 + V2 123 + V3 79 + V3.1 43 + V3.2 50)
-- Frontend: **78 tests passed** (V1 30 + V2 20 + V3 10 + V3.1 5 + V3.2 13)
+**测试统计 (工程强化后 · 2026-09-16):**
+- Backend: **376 tests passed** (V1 76 + V2 123 + V3 79 + V3.1 43 + V3.2 50 + 工程一致性 5)
+- Frontend: **92 tests passed** (V1 30 + V2 20 + V3 10 + V3.1 5 + V3.2 13 + 工程参数/流程 14)
 - Engineering Redlines: ~30 V1 + 25+ V3 + 11 V3.2 phrases 强制扫描
+- 前端/后端参数一致性: 5 tests 锁定显示镜像与算法引擎不漂移
 - Frontend build: ✓ PASS (1351 KB bundle · 441 KB gzip · 714 modules)
 - TypeScript: 0 errors
 - API smoke test: ✓ 全部 14 端点 200 (含 knowledge_evidence 验证)
 - **No secrets committed** (verified via grep + git diff)
+
+### 一键验证
+
+```bash
+bash scripts/verify.sh              # backend tests → frontend tests → tsc → build
+bash scripts/verify.sh --skip-build # 跳过生产构建
+```
+
+四个阶段**串行**执行（8GB 机器上并行会因内存压力假死）。API smoke test
+需要先起服务，步骤见上方「启动」章节。
+
+## Roadmap
+
+已完成 V1 → V2 → V3 → V3.1 → V3.2。以下是候选方向，均**未开始**：
+
+**工程侧**
+- 把前端显示镜像的参数改为从 API 读取（消除最后一处参数重复）
+- 聚合接口的逐建筑分析批量化（当前为 N+1 形态，规模小无感）
+- 改造建议持久化（当前实时计算，未落库）
+
+**数据侧**
+- 接入真实监测数据格式（CSV / 标准时序协议），替换模拟数据生成器
+- 支持多建筑时间轴对齐与横向对比
+
+**AI 侧**
+- 多轮对话与上下文管理（Phase 6C 范畴，当前刻意不做）
+- 检索质量提升（领域词表 / 同义词扩展）
+
+**明确不做**
+- 结构安全鉴定、倒塌预测、自动结构设计、官方标准评分
+- 任何把原型参数包装成正式工程标准的表述
 
 ## License
 
