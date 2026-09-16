@@ -455,6 +455,43 @@ export default function BuildingDetail() {
           </div>
         )}
       </Card>
+
+      {/* Phase 5 V3 · AI Engineering Assistant 入口 */}
+      <Card
+        title="AI Engineering Assistant"
+        subtitle="Explanation layer (Mock provider) over existing BHI / Risk / Retrofit data"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+          <Link
+            to={`/ai-assistant?building_id=${buildingId}&q=${encodeURIComponent(
+              "Summarize the current building health status",
+            )}`}
+            className="text-xs px-3 py-2 border border-slate-300 rounded text-slate-700 hover:bg-slate-50 text-center"
+          >
+            Explain Health
+          </Link>
+          <Link
+            to={`/ai-assistant?building_id=${buildingId}&q=${encodeURIComponent(
+              "Explain the current risk level and why",
+            )}`}
+            className="text-xs px-3 py-2 border border-slate-300 rounded text-slate-700 hover:bg-slate-50 text-center"
+          >
+            Explain Risk
+          </Link>
+          <Link
+            to={`/ai-assistant?building_id=${buildingId}&q=${encodeURIComponent(
+              "Explain the retrofit priorities",
+            )}`}
+            className="text-xs px-3 py-2 border border-slate-300 rounded text-slate-700 hover:bg-slate-50 text-center"
+          >
+            Explain Retrofit Priority
+          </Link>
+        </div>
+        <div className="mt-2 text-[11px] text-slate-500">
+          AI response is grounded in the V1 BHI / Risk and V2 Retrofit Priority
+          values shown above. Mock provider by default; no real LLM is invoked.
+        </div>
+      </Card>
     </div>
   );
 }

@@ -51,3 +51,20 @@ DATABASE_URL = f"sqlite:///{os.path.join(DATA_DIR, 'buildhealth.db')}"
 
 # 确保 data 目录存在
 os.makedirs(DATA_DIR, exist_ok=True)
+
+
+# =================================================================
+# AI Engineering Assistant · Phase 5 V3
+# =================================================================
+# Provider 默认 mock. 真实 LLM provider 留待 Phase 6+ 实现.
+# 不读 .env, 不安装 SDK. 全部硬编码, 保证本地可运行且无 secret.
+AI_PROVIDER = "mock"
+AI_MODEL = "mock-deterministic-v1"
+AI_VERSION = "AI-v1.0"
+AI_DISCLAIMER = (
+    "AI Engineering Assistant output is engineering decision support only, "
+    "based on Prototype BHI / Risk / Priority parameters. It does not "
+    "constitute professional engineering appraisal, automatic structural "
+    "design, or a building safety certification. All outputs require "
+    "qualified professional review."
+)

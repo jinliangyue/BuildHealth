@@ -5,9 +5,9 @@
 
 ## 当前状态
 
-**Phase 4 — V2 Retrofit Decision Support（已完成）**
+**Phase 5 — V3 AI Engineering Assistant（已完成）**
 
-V2 在 V1 监测+BHI+风险基础上,新增"改造决策支持"链路:
+V3 在 V1+V2 数据基础上,新增 **AI Engineering Assistant** —— 解释层 / 知识助手:
 
 ```
 SQLite (data/buildhealth.db) · 8 张表 (V1 6 + V2 2)
@@ -16,13 +16,16 @@ SQLAlchemy ORM
     ↓
 Analytics Engine (V1: anomaly/health/risk · V2: priority/recommendation_rules)
     ↓
-FastAPI (12 个业务端点 + 2 health)
+FastAPI (15 个业务端点 + 2 health)
+    ↓
+    ├── V1/V2 端点 (deterministic engineering data)
+    └── V3 AI 端点 (Mock provider, explanation layer)
     ↓
 Vite proxy /api
     ↓
 React + TypeScript + ECharts
     ↓
-6 个工程仪表盘页面 (含新增 Retrofit Decision)
+7 个工程仪表盘页面 (含新增 AI Assistant)
 ```
 
 **V1 Capabilities (Phase 1-3):**
@@ -40,6 +43,16 @@ React + TypeScript + ECharts
 - 3 个新 API 端点
 - 新增 `/retrofit` 页面 + Building Detail Retrofit Decision 段
 - Engineering Notes 显示
+
+**V3 Capabilities (Phase 5):**
+- AI Engineering Assistant (Mock provider, deterministic)
+- EngineeringContext Builder (复用 V1/V2 services, 不重算)
+- AIResponse 结构: answer + key_findings + evidence + recommended_actions + disclaimer
+- 5 个 quick question 路由 + free-form ask
+- Evidence chain 可点击 (回退到 Building / Health / Risk / Retrofit)
+- 3 个新 API 端点 (`/api/ai/health`, `/summary`, `/ask`)
+- 新增 `/ai-assistant` 页面 + Building Detail AI 入口
+- Provider 抽象 (Phase 6+ 可加 OpenAI / Anthropic)
 
 ## 启动
 
@@ -72,7 +85,7 @@ Vite 已配置 `/api` proxy 自动转发到 `http://localhost:8000`。
 
 ## 文档
 
-`docs/` 共 13 份设计文档:
+`docs/` 共 17 份设计文档:
 
 ### V1 (Phase 0-3)
 - `01_Project_Overview.md` · 项目定位 + 范围 + 原则
@@ -91,6 +104,12 @@ Vite 已配置 `/api` proxy 自动转发到 `http://localhost:8000`。
 - `12_Retrofit_Recommendation_Rules.md` · REC-v1.0 规则引擎
 - `13_V2_Testing.md` · V2 测试策略
 
+### V3 (Phase 5)
+- `14_AI_Assistant_Design.md` · AI Assistant 设计
+- `15_AI_Context_and_Grounding.md` · Context Builder + 证据落地
+- `16_AI_Safety_Redlines.md` · AI 安全红线 + 强制 disclaimer
+- `17_Phase5_Testing.md` · V3 测试策略
+
 ## 重要声明 (Engineering Disclaimer)
 
 - **数据来源**: 全部为 `Simulated Data`（前端右下角常驻水印）
@@ -98,20 +117,30 @@ Vite 已配置 `/api` proxy 自动转发到 `http://localhost:8000`。
 - **风险分级**: `Prototype Risk Classification`, 仅辅助评估
 - **改造优先级 (V2)**: `Prototype Retrofit Priority Parameters (RP-v1.0)`, 仅工程决策支持
 - **改造建议 (V2)**: `Recommendation Rules v1.0 (REC-v1.0)`, 非自动结构设计
+- **AI Engineering Assistant (V3)**: `AI-v1.0`, 解释层 / 知识助手, Mock provider, 非真实 LLM
 
 **系统能力边界:**
-- ✓ 识别问题 · 解释风险 · 计算优先级 · 推荐改造方向 · 给出成本等级 · 建议下一步行动
-- ✗ 不预测建筑倒塌 · 不替代专业结构检测 · 不替代安全鉴定 · 不生成自动加固方案 · 不出结构施工图 · 不生成钢筋设计 · 不替代结构工程师
+- ✓ 识别问题 · 解释风险 · 计算优先级 · 推荐改造方向 · 给出成本等级 · 建议下一步行动 · 解释已有工程数据
+- ✗ 不预测建筑倒塌 · 不替代专业结构检测 · 不替代安全鉴定 · 不生成自动加固方案 · 不出结构施工图 · 不生成钢筋设计 · 不替代结构工程师 · 不自动完成工程鉴定 · 不声称符合标准
 
-**V2 不做的事:**
+**V3 不做的事:**
+- ✗ 不接真实 LLM API (OpenAI / Anthropic / Gemini)
+- ✗ 不做 RAG / Vector DB / Agent / MCP / Function Calling
+- ✗ 不做 chat history 持久化
+- ✗ 不做 streaming response
 - ✗ 不接 IoT / 真实硬件
 - ✗ 不做 BIM / GIS / 3D
 - ✗ 不做云部署 / 支付 / 用户权限
-- ✗ 不做自动结构设计 / 钢筋设计
-- ✗ 不做真实建筑安全认证
-- ✗ 不在核心计算中引入 LLM (Phase 5+ 计划加入)
-- ✗ 不伪造精确造价或 ROI 数字
-- ✗ 不修改 V1 BHI / Risk 算法
+- ✗ 不在 AI 核心计算中替代确定性工程算法
+- ✗ 不修改 V1 BHI / V2 Retrofit 算法
+
+**AI 不得声称 (强制):**
+- ✗ "This building is safe" / "building will collapse"
+- ✗ "Automatic structural appraisal completed"
+- ✗ "Official safety certification"
+- ✗ "AI-designed reinforcement"
+- ✗ "Professional inspection completed" (without qualified qualifier)
+- ✗ "Complies with national standard" / 符合国家标准
 
 ## 技术栈
 
@@ -120,7 +149,8 @@ Vite 已配置 `/api` proxy 自动转发到 `http://localhost:8000`。
 | Frontend | React 18 + TypeScript 5 + Vite 5 + Tailwind 3 + ECharts 5 + React Router 6 |
 | Backend | Python 3.9 + FastAPI 0.115 + SQLAlchemy 2.0 + Pydantic 2.9 |
 | Database | SQLite (开发期单文件 `data/buildhealth.db`) |
-| Data Analysis | Pandas + NumPy + SciPy (已声明, V2 在 trend score 中使用) |
+| Data Analysis | Pandas + NumPy + SciPy (V2 trend score 中使用) |
+| AI | Mock Provider (Phase 5) · Provider Protocol 预留 (Phase 6+ 接 OpenAI / Anthropic) |
 | Test | pytest 8.3 + FastAPI TestClient + StaticPool 内存 SQLite / Vitest + Testing Library |
 
 ## 端到端验证状态
@@ -145,11 +175,18 @@ Vite 已配置 `/api` proxy 自动转发到 `http://localhost:8000`。
 | GET `/api/buildings/{id}/retrofit/{rec_id}` | ✓ 200 · 单条详情 |
 | GET `/api/retrofit/overview` | ✓ 200 · 跨建筑聚合 |
 
+### V3 (3 endpoints)
+| 端点 | 验证 |
+|---|---|
+| GET `/api/ai/health` | ✓ 200 · provider=mock, model=mock-deterministic-v1 |
+| POST `/api/ai/buildings/{id}/summary` | ✓ 200 · 含 answer + key_findings + evidence + disclaimer |
+| POST `/api/ai/buildings/{id}/ask` | ✓ 200 · Mock keyword routing |
+
 **测试统计:**
-- Backend: **199 tests passed** (V1 76 + V2 123)
-- Frontend: **50 tests passed** (V1 30 + V2 20)
-- Engineering Redlines: ~30 phrases 强制扫描
-- Frontend build: ✓ PASS (1338 KB bundle · 439 KB gzip)
+- Backend: **278 tests passed** (V1 76 + V2 123 + V3 79)
+- Frontend: **60 tests passed** (V1 30 + V2 20 + V3 10)
+- Engineering Redlines: ~30 V1 + 25+ V3 phrases 强制扫描
+- Frontend build: ✓ PASS (1348 KB bundle · 441 KB gzip)
 - TypeScript: 0 errors
 
 ## License

@@ -9,3 +9,4 @@ export { healthApi } from "./health";
 export { riskApi } from "./risk";
 export { dashboardApi } from "./dashboard";
 export { retrofitApi } from "./retrofit";
+export { aiApi } from "./ai";

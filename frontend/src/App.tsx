@@ -7,6 +7,7 @@ import BuildingDetail from "./pages/BuildingDetail";
 import Monitoring from "./pages/Monitoring";
 import RiskHealth from "./pages/RiskHealth";
 import RetrofitDecision from "./pages/RetrofitDecision";
+import AIAssistant from "./pages/AIAssistant";
 import DataSettings from "./pages/DataSettings";
 
 export default function App() {
@@ -22,6 +23,7 @@ export default function App() {
             <Route path="/monitoring" element={<Monitoring />} />
             <Route path="/risk-health" element={<RiskHealth />} />
             <Route path="/retrofit" element={<RetrofitDecision />} />
+            <Route path="/ai-assistant" element={<AIAssistant />} />
             <Route path="/data" element={<DataSettings />} />
             <Route path="/settings" element={<DataSettings />} />
           </Routes>

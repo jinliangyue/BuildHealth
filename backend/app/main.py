@@ -1,14 +1,14 @@
 """
 BuildHealth FastAPI Application
-Phase 1 实现 · Phase 4 V2 扩展 retrofit decision
+Phase 1 V1 + Phase 4 V2 retrofit + Phase 5 V3 AI Engineering Assistant
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
     title="BuildHealth API",
-    description="既有建筑健康监测与智能更新决策平台 · Phase 4 V2",
-    version="0.2.0",
+    description="既有建筑健康监测与智能更新决策平台 · Phase 5 V3",
+    version="0.3.0",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -32,15 +32,17 @@ def root():
     return {
         "project": "BuildHealth",
         "full_name": "Existing Building Health Monitoring & Intelligent Retrofit Decision Platform",
-        "phase": "Phase 4 - V2 Retrofit Decision Support",
-        "version": "0.2.0",
+        "phase": "Phase 5 - V3 AI Engineering Assistant",
+        "version": "0.3.0",
         "notice": (
             "All data is simulated (Simulated Data). "
             "BHI uses Prototype Design Parameters (v1.0), not a national or industry standard. "
             "Risk classification is Prototype Risk Classification, "
             "not a legally binding building safety grade. "
             "Retrofit priority uses Prototype Retrofit Priority Parameters (RP-v1.0) "
-            "and is engineering decision support only."
+            "and is engineering decision support only. "
+            "AI Engineering Assistant is an explanation layer (Mock provider by default); "
+            "it does not perform engineering calculation or replace qualified professionals."
         ),
     }
 
@@ -49,12 +51,13 @@ def root():
 def health_check():
     return {
         "status": "ok",
-        "phase": "Phase 4 - V2",
+        "phase": "Phase 5 - V3",
         "components": {
             "api": "ok",
             "database": "ok",
             "analytics": "ok",
             "retrofit_decision": "ok",
+            "ai_assistant": "ok (mock provider)",
         },
     }
 
@@ -62,6 +65,7 @@ def health_check():
 # Phase 1: 挂载完整路由
 from app.api import buildings, sensors, monitoring, health, risk, dashboard
 from app.api import retrofit as retrofit_api
+from app.api import ai as ai_api
 
 app.include_router(buildings.router, prefix="/api")
 app.include_router(sensors.router, prefix="/api")
@@ -70,6 +74,7 @@ app.include_router(health.router, prefix="/api")
 app.include_router(risk.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(retrofit_api.router, prefix="/api")
+app.include_router(ai_api.router, prefix="/api")
 
 
 if __name__ == "__main__":

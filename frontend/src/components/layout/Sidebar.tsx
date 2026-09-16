@@ -10,6 +10,7 @@ const NAV = [
   { to: "/monitoring", label: "Monitoring", end: false },
   { to: "/risk-health", label: "Risk & Health", end: false },
   { to: "/retrofit", label: "Retrofit Decision", end: false },
+  { to: "/ai-assistant", label: "AI Assistant", end: false },
   { to: "/data", label: "Data / Settings", end: false },
 ];
 
@@ -89,7 +90,7 @@ export default function Sidebar() {
           ))}
         </nav>
         <div className="px-5 py-3 border-t border-slate-200 text-[11px] text-slate-500 leading-relaxed">
-          <div className="font-medium text-slate-700">Phase 4 · v0.4.0</div>
+          <div className="font-medium text-slate-700">Phase 5 · v0.5.0</div>
           <div className="mt-1 px-1.5 py-0.5 bg-amber-50 border border-amber-200 rounded inline-block text-amber-700">
             Simulated Data
           </div>

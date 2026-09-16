@@ -330,3 +330,68 @@ export const COST_LEVEL_COLORS: Record<RetrofitCostLevel, string> = {
   medium: "#F59E0B",
   high: "#EF4444",
 };
+
+// ===== AI Engineering Assistant (V3) =====
+export type AIProviderType = "mock" | "openai" | "anthropic" | "other";
+export type AISeverity = "info" | "low" | "medium" | "high";
+export type AIUrgency = "low" | "medium" | "high";
+export type AIEvidenceSourceType =
+  | "sensor"
+  | "anomaly"
+  | "health"
+  | "risk"
+  | "retrofit_recommendation"
+  | "engineering_note"
+  | "building";
+
+export interface AIEvidenceRef {
+  source_type: AIEvidenceSourceType;
+  source_id: number | null;
+  metric: string | null;
+  description: string;
+  reference_path: string | null;
+}
+
+export interface AIKeyFinding {
+  title: string;
+  description: string;
+  severity: AISeverity;
+}
+
+export interface AIRecommendedAction {
+  action: string;
+  reason: string;
+  urgency: AIUrgency;
+}
+
+export interface AIResponse {
+  answer: string;
+  key_findings: AIKeyFinding[];
+  evidence: AIEvidenceRef[];
+  recommended_actions: AIRecommendedAction[];
+  disclaimer: string;
+  provider: AIProviderType;
+  model: string;
+  calculation_version: string;
+  created_at: string;
+}
+
+export interface AIHealthStatus {
+  status: "ok" | "provider_not_configured" | "provider_error";
+  provider: AIProviderType;
+  model: string;
+  message: string;
+}
+
+export const AI_SEVERITY_COLORS: Record<AISeverity, string> = {
+  info: "#3B82F6",
+  low: "#94A3B8",
+  medium: "#F59E0B",
+  high: "#EF4444",
+};
+
+export const AI_URGENCY_COLORS: Record<AIUrgency, string> = {
+  low: "#10B981",
+  medium: "#F59E0B",
+  high: "#EF4444",
+};
