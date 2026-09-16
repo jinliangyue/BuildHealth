@@ -33,6 +33,7 @@ from app.analytics.config import (
     RULE_RECENT_VALUES_LIMIT,
 )
 from app.services import assessment as assessment_svc
+from app.services.assessment import BuildingAnalysis
 from app.schemas.api import RetrofitPriorityLevelEnum
 
 
@@ -138,38 +139,61 @@ def _rule_result_to_dict(
 def generate_recommendations(
     session: Session,
     building_id: int,
+    analysis: Optional[BuildingAnalysis] = None,
+    recent_values_by_sensor: Optional[Dict[int, List[Dict[str, Any]]]] = None,
 ) -> List[Dict[str, Any]]:
     """
     对单建筑跑 5 条 rule, 计算每条 priority score, 按 score 降序返回 dict 列表.
+
+    analysis 为可选的请求作用域分析结果。调用方若已经在同一请求里算过这栋
+    建筑的 building/components/sensors/series/anomalies/health/risk，
+    传进来即可完全跳过重复读取与重复计算。
+
+    recent_values_by_sensor 为可选的批量预加载的最近记录（按 sensor_id）。
+    聚合接口一次读入所有建筑后按需切分传入，避免每栋建筑各发一条查询。
+
+    两个参数传 None 时行为与之前完全一致。
     """
-    building = session.get(m.Building, building_id)
-    if building is None:
-        return []
+    if analysis is not None:
+        building = analysis.building
+        components = analysis.components
+        sensors = analysis.sensors
+        series_map = analysis.series_map
+        anomalies = analysis.anomalies
+        health = analysis.health
+        risk = analysis.risk
+    else:
+        building = session.get(m.Building, building_id)
+        if building is None:
+            return []
 
-    components = (
-        session.query(m.Component)
-        .filter(m.Component.building_id == building_id)
-        .all()
-    )
-    sensors = (
-        session.query(m.Sensor)
-        .filter(m.Sensor.building_id == building_id)
-        .all()
-    )
+        components = (
+            session.query(m.Component)
+            .filter(m.Component.building_id == building_id)
+            .all()
+        )
+        sensors = (
+            session.query(m.Sensor)
+            .filter(m.Sensor.building_id == building_id)
+            .all()
+        )
+
+        # 一次读入本建筑全部监测序列，供异常检测 / BHI / trend score 共用。
+        # 此前这三处各自重复查询同一批序列（3× 读放大）。
+        series_map = assessment_svc.get_building_series_map(session, building_id)
+
+        # 拉 health + risk + anomalies（复用已读入的 sensors 与 series_map）
+        anomalies = assessment_svc.run_anomaly_detection(
+            session, building_id, sensors=sensors, series_map=series_map
+        )
+        health = assessment_svc.compute_health_assessment(
+            session, building, anomalies, series_map=series_map
+        )
+        risk = assessment_svc.classify_risk_for_building(
+            health["score"], anomalies, building_id
+        )
+
     sensors_by_metric = _sensors_by_metric(sensors)
-
-    # 一次读入本建筑全部监测序列，供异常检测 / BHI / trend score 共用。
-    # 此前这三处各自重复查询同一批序列（3× 读放大）。
-    series_map = assessment_svc.get_building_series_map(session, building_id)
-
-    # 拉 health + risk + anomalies（复用已读入的 sensors 与 series_map）
-    anomalies = assessment_svc.run_anomaly_detection(
-        session, building_id, sensors=sensors, series_map=series_map
-    )
-    health = assessment_svc.compute_health_assessment(
-        session, building, anomalies, series_map=series_map
-    )
-    risk = assessment_svc.classify_risk_for_building(health["score"], anomalies, building_id)
 
     # 计算 trend score（复用同一份序列，不再重复查询）
     sensor_series_by_metric: Dict[str, List] = {
@@ -178,7 +202,10 @@ def generate_recommendations(
     trend_score = pri.compute_trend_score(sensor_series_by_metric)
 
     # 拉 recent values 给 rule 的 evidence
-    recent_values_by_sensor = _get_recent_values_by_sensor(session, sensors)
+    # recent_values_by_sensor 可由调用方批量预加载（聚合接口一次读入所有建筑），
+    # 未提供时按本建筑传感器自行读取（单建筑端点路径）。
+    if recent_values_by_sensor is None:
+        recent_values_by_sensor = _get_recent_values_by_sensor(session, sensors)
 
     # 构造 RuleContext
     ctx = rules.RuleContext(
@@ -229,15 +256,22 @@ def generate_recommendations(
 def get_retrofit_decision(
     session: Session,
     building_id: int,
+    analysis: Optional[BuildingAnalysis] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     返回单建筑的完整 retrofit decision (含 engineering notes + disclaimer).
+
+    analysis 为可选的请求作用域分析结果；调用方已算过同一栋建筑的
+    anomalies / health / risk 时传入即可避免重复计算。传 None 时行为不变。
     """
-    building = session.get(m.Building, building_id)
+    if analysis is not None:
+        building = analysis.building
+    else:
+        building = session.get(m.Building, building_id)
     if building is None:
         return None
 
-    recs = generate_recommendations(session, building_id)
+    recs = generate_recommendations(session, building_id, analysis=analysis)
     notes = (
         session.query(m.EngineeringNote)
         .filter(m.EngineeringNote.building_id == building_id)
@@ -298,15 +332,39 @@ def get_retrofit_recommendation(
 
 
 def get_retrofit_overview(session: Session) -> Dict[str, Any]:
-    """跨建筑聚合: 全部建筑的 retrofit 概览."""
+    """
+    跨建筑聚合: 全部建筑的 retrofit 概览.
+
+    先用固定次数的批量查询算出各建筑的 building/components/sensors/series
+    与 anomalies/health/risk，再逐栋在内存里跑规则。此前每栋建筑会独立
+    发 4 条查询并各自重跑异常检测，查询数随建筑数线性增长。
+    """
     buildings = session.query(m.Building).order_by(m.Building.id).all()
+    analysis_map = assessment_svc.analyze_buildings(session, [b.id for b in buildings])
+
+    # 最近记录也一次读入（跨全部建筑的所有传感器），再按建筑切分传入，
+    # 避免每栋建筑各发一条查询。
+    all_sensors = [s for a in analysis_map.values() for s in a.sensors]
+    recent_all = _get_recent_values_by_sensor(session, all_sensors)
+
     items: List[Dict[str, Any]] = []
     total_priority = 0.0
     counted = 0
 
     for b in buildings:
         try:
-            recs = generate_recommendations(session, b.id)
+            analysis = analysis_map.get(b.id)
+            recent_subset = (
+                {s.id: recent_all.get(s.id, []) for s in analysis.sensors}
+                if analysis is not None
+                else None
+            )
+            recs = generate_recommendations(
+                session,
+                b.id,
+                analysis=analysis,
+                recent_values_by_sensor=recent_subset,
+            )
         except Exception:
             session.rollback()
             recs = []

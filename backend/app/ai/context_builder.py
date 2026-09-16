@@ -63,31 +63,29 @@ def build_engineering_context(
 
     Returns None if building not found.
     """
-    building = session.get(m.Building, building_id)
-    if building is None:
+    # 本请求内这栋建筑的分析只算一次：anomalies / health / risk 由
+    # analyze_building 统一产出，并向下传给 retrofit decision 复用。
+    # 此前 context_builder 自己算一遍，链路里的 retrofit decision 又算一遍，
+    # 同一栋建筑的异常检测在一次请求里跑两次。
+    analysis = assessment_svc.analyze_building(session, building_id)
+    if analysis is None:
         return None
 
-    # 1. 加载基础元数据
-    components_rows = (
-        session.query(m.Component)
-        .filter(m.Component.building_id == building_id)
-        .all()
-    )
-    sensors_rows = (
-        session.query(m.Sensor)
-        .filter(m.Sensor.building_id == building_id)
-        .all()
-    )
+    building = analysis.building
 
-    # 2. 复用 V1 services 计算 health / risk / anomalies
-    anomalies = assessment_svc.run_anomaly_detection(session, building_id)
-    health = assessment_svc.compute_health_assessment(session, building, anomalies)
-    risk = assessment_svc.classify_risk_for_building(
-        health["score"], anomalies, building_id
-    )
+    # 1. 基础元数据（已随 analysis 一次读入）
+    components_rows = analysis.components
+    sensors_rows = analysis.sensors
 
-    # 3. 复用 V2 service 获取完整 retrofit decision (含 evidence)
-    retrofit_decision = retrofit_svc.get_retrofit_decision(session, building_id)
+    # 2. 复用 V1 services 的计算结果
+    anomalies = analysis.anomalies
+    health = analysis.health
+    risk = analysis.risk
+
+    # 3. 复用 V2 service 获取完整 retrofit decision (含 evidence)，共享同一份分析
+    retrofit_decision = retrofit_svc.get_retrofit_decision(
+        session, building_id, analysis=analysis
+    )
     if retrofit_decision is None:
         retrofit_decision = {
             "overall_priority": 0.0,
@@ -101,13 +99,13 @@ def build_engineering_context(
     sensor_infos: List[ContextSensorInfo] = []
     by_metric: Dict[str, int] = {}
     total_records = 0
+    # 一次读入本建筑所有传感器的记录（此前每个传感器一条查询），
+    # 每组按 timestamp 降序，[0] 即最新一条，与逐传感器查询结果一致。
+    records_by_sensor = assessment_svc.load_records_by_sensor(
+        session, [s.id for s in sensors_rows]
+    )
     for s in sensors_rows:
-        records = (
-            session.query(m.MonitoringRecord)
-            .filter(m.MonitoringRecord.sensor_id == s.id)
-            .order_by(m.MonitoringRecord.timestamp.desc())
-            .all()
-        )
+        records = records_by_sensor.get(s.id, [])
         count = len(records)
         total_records += count
         by_metric[s.sensor_type] = by_metric.get(s.sensor_type, 0) + count

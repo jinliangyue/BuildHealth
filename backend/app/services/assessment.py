@@ -3,7 +3,8 @@ Analysis Service · 完整计算链路编排
 调用 Analytics Engine 但不暴露给 API 层。
 API 层只调用 service.assess_building() 等高层方法。
 """
-from typing import Dict, List, Tuple, Optional
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Tuple, Optional
 from datetime import datetime
 
 from sqlalchemy.orm import Session
@@ -109,6 +110,29 @@ def load_series_map_by_building(
     return out
 
 
+def load_records_by_sensor(
+    session: Session, sensor_ids: List[int]
+) -> Dict[int, List[m.MonitoringRecord]]:
+    """
+    一次读入多个传感器的全部监测记录，按 sensor_id 分组。
+
+    每组内按 timestamp 降序，与逐传感器 `order_by(timestamp.desc())` 的结果
+    一致（每组第一条即最新一条）。用于替代逐传感器的计数/取最新记录循环。
+    """
+    if not sensor_ids:
+        return {}
+    rows = (
+        session.query(m.MonitoringRecord)
+        .filter(m.MonitoringRecord.sensor_id.in_(sensor_ids))
+        .order_by(m.MonitoringRecord.sensor_id, m.MonitoringRecord.timestamp.desc())
+        .all()
+    )
+    out: Dict[int, List[m.MonitoringRecord]] = {}
+    for r in rows:
+        out.setdefault(r.sensor_id, []).append(r)
+    return out
+
+
 def get_latest_assessments(
     session: Session, building_ids: Optional[List[int]] = None
 ) -> Dict[int, m.HealthAssessment]:
@@ -140,6 +164,118 @@ def get_latest_assessments(
         prev = out.get(a.building_id)
         if prev is None or a.id > prev.id:
             out[a.building_id] = a
+    return out
+
+
+@dataclass
+class BuildingAnalysis:
+    """
+    一栋建筑在本**请求生命周期内**的全部确定性分析结果。
+
+    目的是让同一份结果只算一次：异常检测是当前响应时间的主要成本，
+    而 AI 请求链此前会把同一栋建筑的异常检测跑两遍（context_builder
+    跑一遍，链路里的 retrofit decision 又跑一遍）。
+
+    这是请求作用域的对象，不是缓存：它随调用栈传递，请求结束即释放。
+    没有全局状态、没有失效逻辑、没有新增基础设施。
+    """
+    building: m.Building
+    components: List[m.Component]
+    sensors: List[m.Sensor]
+    series_map: Dict[str, List[Tuple[datetime, float]]]
+    anomalies: List[Dict]
+    health: Dict
+    risk: Dict
+
+
+def build_analysis(
+    session: Session,
+    building: m.Building,
+    components: List[m.Component],
+    sensors: List[m.Sensor],
+    series_map: Dict[str, List[Tuple[datetime, float]]],
+) -> BuildingAnalysis:
+    """
+    Run the anomaly → health → risk chain once for one building and return it
+    as a reusable container.
+
+    The preloaded inputs are always supplied here, so the chain issues no
+    further queries; the session is still threaded through so the underlying
+    functions keep working if a preload is ever missing.
+    """
+    anomalies = run_anomaly_detection(
+        session, building.id, sensors=sensors, series_map=series_map
+    )
+    health = compute_health_assessment(
+        session, building, anomalies, series_map=series_map
+    )
+    risk = classify_risk_for_building(health["score"], anomalies, building.id)
+    return BuildingAnalysis(
+        building=building,
+        components=components,
+        sensors=sensors,
+        series_map=series_map,
+        anomalies=anomalies,
+        health=health,
+        risk=risk,
+    )
+
+
+def analyze_building(
+    session: Session, building_id: int
+) -> Optional[BuildingAnalysis]:
+    """
+    Compute one building's full analysis (4 queries). Returns None if the
+    building does not exist.
+    """
+    analysis_map = analyze_buildings(session, [building_id])
+    return analysis_map.get(building_id)
+
+
+def analyze_buildings(
+    session: Session, building_ids: List[int]
+) -> Dict[int, BuildingAnalysis]:
+    """
+    Compute the full analysis for several buildings using a FIXED number of
+    queries (buildings / components / sensors / monitoring series), then do the
+    per-building computation in memory.
+
+    Query count therefore does not grow with the number of buildings, and each
+    building's anomaly detection runs exactly once.
+    """
+    if not building_ids:
+        return {}
+
+    buildings = (
+        session.query(m.Building)
+        .filter(m.Building.id.in_(building_ids))
+        .order_by(m.Building.id)
+        .all()
+    )
+    found_ids = [b.id for b in buildings]
+
+    components_rows = (
+        session.query(m.Component)
+        .filter(m.Component.building_id.in_(found_ids))
+        .order_by(m.Component.id)
+        .all()
+    )
+    components_by_building: Dict[int, List[m.Component]] = {bid: [] for bid in found_ids}
+    for c in components_rows:
+        components_by_building.setdefault(c.building_id, []).append(c)
+
+    sensors_by_building = load_sensors_by_building(session, found_ids)
+    series_by_building = load_series_map_by_building(session, found_ids)
+
+    out: Dict[int, BuildingAnalysis] = {}
+    for b in buildings:
+        out[b.id] = build_analysis(
+            session,
+            b,
+            components_by_building.get(b.id, []),
+            sensors_by_building.get(b.id, []),
+            series_by_building.get(b.id, {}),
+        )
     return out
 
 
