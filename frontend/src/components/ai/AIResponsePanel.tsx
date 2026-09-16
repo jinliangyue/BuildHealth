@@ -1,6 +1,10 @@
 /**
- * AIResponsePanel · Phase 5 V3
- * 渲染 AIResponse: answer + key_findings + evidence + recommended_actions + disclaimer.
+ * AIResponsePanel · Phase 5 V3 + Phase 6B
+ * 渲染 AIResponse: answer + key_findings + evidence + knowledge_evidence
+ * + recommended_actions + disclaimer.
+ *
+ * Phase 6B: engineering Evidence 与 Knowledge Sources 分区渲染,
+ * 不混合, 以免把通用知识误读为本建筑证据.
  */
 import {
   AI_SEVERITY_COLORS,
@@ -8,12 +12,16 @@ import {
   type AIResponse,
 } from "../../types/api";
 import EvidenceList from "./EvidenceList";
+import KnowledgeEvidenceList from "./KnowledgeEvidenceList";
 
 interface Props {
   response: AIResponse;
 }
 
 export default function AIResponsePanel({ response }: Props) {
+  // 防御: 旧版后端响应可能没有该字段
+  const knowledgeItems = response.knowledge_evidence ?? [];
+
   return (
     <div className="space-y-4">
       {/* Provider tag */}
@@ -75,13 +83,23 @@ export default function AIResponsePanel({ response }: Props) {
         </div>
       )}
 
-      {/* Evidence */}
+      {/* Evidence (engineering data · 本建筑实测与派生指标) */}
       {response.evidence.length > 0 && (
         <div>
           <h4 className="text-xs text-slate-500 uppercase tracking-wide mb-2">
             Evidence
           </h4>
           <EvidenceList items={response.evidence} />
+        </div>
+      )}
+
+      {/* Knowledge Sources (Phase 6B · 通用工程知识, 非本建筑证据) */}
+      {knowledgeItems.length > 0 && (
+        <div>
+          <h4 className="text-xs text-violet-600 uppercase tracking-wide mb-2">
+            Knowledge Sources
+          </h4>
+          <KnowledgeEvidenceList items={knowledgeItems} />
         </div>
       )}
 

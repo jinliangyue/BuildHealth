@@ -364,10 +364,28 @@ export interface AIRecommendedAction {
   urgency: AIUrgency;
 }
 
+/**
+ * KnowledgeEvidence (Phase 6B · RAG)
+ *
+ * 来自 project-internal knowledge/ 的通用工程知识文档片段。
+ * 明确区别于 AIEvidenceRef (engineering data evidence):
+ * 知识片段是背景解释, 不是本建筑的实测证据.
+ */
+export interface KnowledgeEvidence {
+  document: string;
+  section: string;
+  content: string;
+  relevance_score: number;
+  source: string;
+  chunk_id: string;
+}
+
 export interface AIResponse {
   answer: string;
   key_findings: AIKeyFinding[];
   evidence: AIEvidenceRef[];
+  /** Phase 6B RAG · general engineering knowledge, distinct from `evidence`. */
+  knowledge_evidence: KnowledgeEvidence[];
   recommended_actions: AIRecommendedAction[];
   disclaimer: string;
   provider: AIProviderType;

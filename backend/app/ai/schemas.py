@@ -40,6 +40,10 @@ class AIResponse(BaseModel):
     answer: str
     key_findings: List[AIKeyFinding] = Field(default_factory=list)
     evidence: List[AIEvidenceRef] = Field(default_factory=list)
+    knowledge_evidence: List[dict] = Field(
+        default_factory=list,
+        description="Phase 6B RAG: list of {document, section, content, relevance_score, source, chunk_id}",
+    )
     recommended_actions: List[AIRecommendedAction] = Field(default_factory=list)
     disclaimer: str
     provider: str = Field(..., description="mock | openai | anthropic | other")
@@ -141,6 +145,12 @@ class EngineeringContext(BaseModel):
     disclaimer: str
     generated_at: datetime
     context_version: str = Field(default="CTX-v1.0")
+
+
+# ============ Phase 6B · Knowledge Evidence (RAG) ============
+# AIResponse.knowledge_evidence uses a flexible Dict shape to avoid a
+# hard import dependency from app.ai.schemas onto app.knowledge. The
+# canonical typed model is app.knowledge.schemas.KnowledgeEvidence.
 
 
 # ============ Phase 6A · Provider Errors ============

@@ -46,10 +46,10 @@ class _MisconfiguredProvider:
             message=self._reason,
         )
 
-    def generate_summary(self, context):  # noqa: ARG002
+    def generate_summary(self, context, knowledge_evidence=None):  # noqa: ARG002
         raise AIProviderError("config_error", self._reason)
 
-    def generate_answer(self, context, question):  # noqa: ARG002
+    def generate_answer(self, context, question, knowledge_evidence=None):  # noqa: ARG002
         raise AIProviderError("config_error", self._reason)
 
 

@@ -55,6 +55,20 @@ AI_FORBIDDEN_PHRASES: List[str] = [
     "absolutely safe",
     "this is a real building",
     "this is a real monitoring",
+    # Phase 6B · RAG-specific phrasings
+    # knowledge document ≠ building evidence; do not claim knowledge
+    # document proves / certifies / describes a specific building.
+    "the knowledge document proves",
+    "the knowledge document confirms",
+    "the knowledge document is the official",
+    "knowledge document is official",
+    "per the retrieved standard",
+    "per the knowledge standard",
+    "knowledge document replaces",
+    "knowledge overrides engineering data",
+    "knowledge overrides the engineering",
+    "building is certified based on knowledge",
+    "knowledge document describes this building",
 ]
 
 

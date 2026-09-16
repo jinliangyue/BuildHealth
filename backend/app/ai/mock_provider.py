@@ -18,7 +18,7 @@ Mock 输出约束:
 - disclaimer 必含
 """
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from app.ai.schemas import (
     AIEvidenceRef,
@@ -50,7 +50,11 @@ class MockProvider:
     # ------------------------------------------------------------------
     # Summary
     # ------------------------------------------------------------------
-    def generate_summary(self, context: EngineeringContext) -> AIResponse:
+    def generate_summary(
+        self,
+        context: EngineeringContext,
+        knowledge_evidence: Optional[List[dict]] = None,
+    ) -> AIResponse:
         h = context.health
         r = context.risk
         rf = context.retrofit
@@ -194,6 +198,7 @@ class MockProvider:
             answer=answer,
             key_findings=key_findings,
             evidence=context.evidence_chain,
+            knowledge_evidence=list(knowledge_evidence or []),
             recommended_actions=recommended_actions,
             disclaimer=AI_DISCLAIMER,
             provider=self.name,
@@ -206,25 +211,32 @@ class MockProvider:
     # Answer (问题路由)
     # ------------------------------------------------------------------
     def generate_answer(
-        self, context: EngineeringContext, question: str
+        self,
+        context: EngineeringContext,
+        question: str,
+        knowledge_evidence: Optional[List[dict]] = None,
     ) -> AIResponse:
         q_lower = question.lower()
         # 关键词路由
         if any(kw in q_lower for kw in ("总结", "summarize", "summary", "健康", "health", "状况", "condition")):
-            return self.generate_summary(context)
+            return self.generate_summary(context, knowledge_evidence=knowledge_evidence)
         if any(kw in q_lower for kw in ("风险", "risk", "highrisk", "abnormal")):
-            return self._explain_risk(context)
+            return self._explain_risk(context, knowledge_evidence=knowledge_evidence)
         if any(kw in q_lower for kw in ("改造", "retrofit", "优先级", "priority", "recommend")):
-            return self._explain_retrofit(context)
+            return self._explain_retrofit(context, knowledge_evidence=knowledge_evidence)
         if any(kw in q_lower for kw in ("异常", "anomaly", "裂缝", "crack", "倾斜", "tilt", "湿度", "humidity")):
-            return self._explain_anomaly(context)
+            return self._explain_anomaly(context, knowledge_evidence=knowledge_evidence)
         # default = summary
-        return self.generate_summary(context)
+        return self.generate_summary(context, knowledge_evidence=knowledge_evidence)
 
     # ------------------------------------------------------------------
     # 细分问题回答
     # ------------------------------------------------------------------
-    def _explain_risk(self, context: EngineeringContext) -> AIResponse:
+    def _explain_risk(
+        self,
+        context: EngineeringContext,
+        knowledge_evidence: Optional[List[dict]] = None,
+    ) -> AIResponse:
         r = context.risk
         h = context.health
         b = context.building
@@ -269,6 +281,7 @@ class MockProvider:
             answer=answer,
             key_findings=key_findings,
             evidence=context.evidence_chain,
+            knowledge_evidence=list(knowledge_evidence or []),
             recommended_actions=[
                 AIRecommendedAction(
                     action="Review prototype risk classification with qualified engineering personnel.",
@@ -283,7 +296,11 @@ class MockProvider:
             created_at=datetime.utcnow(),
         )
 
-    def _explain_retrofit(self, context: EngineeringContext) -> AIResponse:
+    def _explain_retrofit(
+        self,
+        context: EngineeringContext,
+        knowledge_evidence: Optional[List[dict]] = None,
+    ) -> AIResponse:
         rf = context.retrofit
         b = context.building
 
@@ -347,6 +364,7 @@ class MockProvider:
             answer=answer,
             key_findings=key_findings,
             evidence=context.evidence_chain,
+            knowledge_evidence=list(knowledge_evidence or []),
             recommended_actions=recommended_actions,
             disclaimer=AI_DISCLAIMER,
             provider=self.name,
@@ -355,7 +373,11 @@ class MockProvider:
             created_at=datetime.utcnow(),
         )
 
-    def _explain_anomaly(self, context: EngineeringContext) -> AIResponse:
+    def _explain_anomaly(
+        self,
+        context: EngineeringContext,
+        knowledge_evidence: Optional[List[dict]] = None,
+    ) -> AIResponse:
         ms = context.monitoring_summary
         b = context.building
 
@@ -427,6 +449,7 @@ class MockProvider:
             answer=answer,
             key_findings=key_findings,
             evidence=context.evidence_chain,
+            knowledge_evidence=list(knowledge_evidence or []),
             recommended_actions=recommended_actions,
             disclaimer=AI_DISCLAIMER,
             provider=self.name,

@@ -37,6 +37,17 @@ const baseResponse: AIResponse = {
       reference_path: "/api/buildings/1/risk",
     },
   ],
+  knowledge_evidence: [
+    {
+      document: "health_assessment.md",
+      section: "Dimensions",
+      content:
+        "BHI is a Prototype 0-100 composite score over weighted dimensions.",
+      relevance_score: 0.4231,
+      source: "BuildHealth Internal Engineering Notes",
+      chunk_id: "health_assessment.md::1",
+    },
+  ],
   recommended_actions: [
     {
       action: "Review with engineering personnel",
@@ -113,5 +124,77 @@ describe("AIResponsePanel", () => {
     );
     expect(screen.getByText(/AI-v1.0/)).toBeInTheDocument();
     expect(screen.getByText(/qualified professional review/i)).toBeInTheDocument();
+  });
+
+  // ===== Phase 6B · Knowledge Sources =====
+  it("renders Knowledge Sources separately from engineering Evidence", () => {
+    render(
+      <MemoryRouter>
+        <AIResponsePanel response={baseResponse} />
+      </MemoryRouter>,
+    );
+    // 两个分区标题同时存在, 且是两个独立 section
+    expect(screen.getByText("Evidence")).toBeInTheDocument();
+    expect(screen.getByText("Knowledge Sources")).toBeInTheDocument();
+    // 知识片段内容可见
+    expect(screen.getByText("health_assessment.md")).toBeInTheDocument();
+    expect(screen.getByText("Dimensions")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Prototype 0-100 composite score/),
+    ).toBeInTheDocument();
+  });
+
+  it("shows relevance score as a percentage", () => {
+    render(
+      <MemoryRouter>
+        <AIResponsePanel response={baseResponse} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("42%")).toBeInTheDocument();
+  });
+
+  it("labels knowledge as non-building background, not an official standard", () => {
+    render(
+      <MemoryRouter>
+        <AIResponsePanel response={baseResponse} />
+      </MemoryRouter>,
+    );
+    expect(
+      screen.getByText(/not measurements of this building/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/not an official standard/i),
+    ).toBeInTheDocument();
+  });
+
+  it("renders without crashing when knowledge_evidence is empty", () => {
+    render(
+      <MemoryRouter>
+        <AIResponsePanel response={{ ...baseResponse, knowledge_evidence: [] }} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText(/Building X is at high risk/)).toBeInTheDocument();
+    // 无知识片段时不渲染 Knowledge Sources 分区
+    expect(screen.queryByText("Knowledge Sources")).not.toBeInTheDocument();
+  });
+
+  it("keeps engineering Evidence visible when knowledge_evidence is empty", () => {
+    render(
+      <MemoryRouter>
+        <AIResponsePanel response={{ ...baseResponse, knowledge_evidence: [] }} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText(/BHI=54.27/)).toBeInTheDocument();
+  });
+
+  it("does not crash when knowledge_evidence is missing entirely (old backend)", () => {
+    const legacy = { ...baseResponse } as Partial<AIResponse>;
+    delete legacy.knowledge_evidence;
+    render(
+      <MemoryRouter>
+        <AIResponsePanel response={legacy as AIResponse} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText(/Building X is at high risk/)).toBeInTheDocument();
   });
 });

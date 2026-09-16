@@ -5,9 +5,9 @@
 
 ## 当前状态
 
-**Phase 6A — V3.1 Real LLM Provider Infrastructure（已完成）**
+**Phase 6B — Engineering Knowledge RAG & Evidence Grounding（已完成）**
 
-V3.1 在 V3 Mock Mode 基础上, 引入**真实 LLM Provider 基础设施** (OpenAI-compatible). Mock Mode 仍是默认, 真实 LLM 仅在用户配置环境变量后启用.
+V3.2 在 V3.1 Real LLM Provider 基础上, 引入**项目自有工程知识库 (RAG)**, 让 AI 的解释可以引用项目内部写定的工程知识文档, 同时严格区分「本建筑数据证据」与「通用工程知识背景」.
 
 ```
 SQLite (data/buildhealth.db) · 8 张表 (V1 6 + V2 2)
@@ -20,12 +20,17 @@ FastAPI (15 个业务端点 + 2 health)
     ↓
     ├── V1/V2 端点 (deterministic engineering data)
     └── V3 AI 端点 (Mock / OpenAI-compatible provider, explanation layer)
+             ↑
+             │  KnowledgeRetriever (TF-IDF + cosine · 纯标准库)
+             │  backend/knowledge/*.md → 5 docs → 23 chunks → top-3
+             └── KnowledgeEvidence → AIResponse.knowledge_evidence
     ↓
 Vite proxy /api
     ↓
 React + TypeScript + ECharts
     ↓
-7 个工程仪表盘页面 (含 AI Assistant · ProviderBadge 显示 mode)
+7 个工程仪表盘页面 (含 AI Assistant · ProviderBadge 显示 mode
+                    · Knowledge Sources 分区)
 ```
 
 **V1 Capabilities (Phase 1-3):** Building / Component / Sensor / MonitoringRecord · 3 种异常检测 · BHI 0-100 · 4 档 Risk · 6 仪表盘页面 + 9 API 端点
@@ -43,8 +48,50 @@ React + TypeScript + ECharts
 - ✓ Prompt injection 防护 (system prompt 显式声明 user untrusted)
 - ✓ _MisconfiguredProvider 显式降级 (缺 key/url → 503 + structured body)
 - ✓ Frontend ProviderBadge (Mock Mode / Live AI / Not Configured)
-- ✗ RAG / knowledge/ (Phase 6B 留)
+
+**V3.2 Capabilities (Phase 6B):**
+- ✓ **Project-only engineering knowledge base** (`backend/knowledge/` · 5 篇 Markdown)
+- ✓ Deterministic loading + chunking (`##` 切分 · 5 docs → 23 chunks)
+- ✓ **轻量 lexical retrieval**: TF-IDF + cosine, 纯 Python 标准库, 无 vector DB / 无 embedding / 无外部依赖
+- ✓ `KnowledgeEvidence` schema (document / section / content / relevance_score / source / chunk_id)
+- ✓ `AIResponse.knowledge_evidence` 字段 (与 `evidence` 永不合并)
+- ✓ **Engineering Data Context 与 Knowledge Context 分离** (prompt 两个独立 key)
+- ✓ Mock Provider 支持 knowledge evidence
+- ✓ Real LLM Provider 支持 knowledge context + 强制 evidence 取自检索
+- ✓ Frontend **Knowledge Sources** 分区展示 (与 Evidence 分区配色区分)
+- ✓ RAG 专项红线 11 条 + 知识库语料自检 (无标准编号 / 无语料级禁词)
+- ✓ 优雅降级 (retriever 缺失或异常 → RAG 关闭, AI 端点照常)
 - ✗ Conversation (Phase 6C 留)
+- ✗ Vector DB / embedding / 语义检索 (不在路线内)
+- ✗ 互联网知识爬取 (不在路线内)
+
+## 工程知识库 (Phase 6B)
+
+`backend/knowledge/` 存放**项目自有**的工程知识文档, 供 AI 解释层引用.
+
+| 文档 | 主题 |
+|---|---|
+| `anomaly_detection.md` | Threshold / rate-of-change / z-score 三方法 |
+| `health_assessment.md` | BHI 0-100 + 5 维度 + 权重 |
+| `risk_classification.md` | 4 档分级 + HIGH override 规则 |
+| `retrofit_decision.md` | RP-v1.0 优先级 + REC-v1.0 规则 |
+| `engineering_redlines.md` | 10 条红线 + 强制 disclaimer |
+| `README.md` | 目录说明 · **不进入索引** |
+
+**检索**: `tokenize → TF-IDF → cosine → top-3`, `relevance_score` ∈ [0, 1].
+**查询增强**: 用户问题 + EngineeringContext 关键词 (metric / risk / category / weakest dimension).
+
+**核心边界** — 知识库是背景, 不是证据:
+
+| | Engineering Data Evidence | Knowledge Evidence |
+|---|---|---|
+| 字段 | `AIResponse.evidence` | `AIResponse.knowledge_evidence` |
+| 含义 | **本建筑**实测与派生数据 | **通用**工程概念背景 |
+| 优先级 | 绝对优先 | 仅背景解释 |
+| 能否证明本建筑状况 | 能 | **不能** |
+
+知识文档**不含**任何国家 / 行业标准编号, 不提供具体结构安全限值,
+不构成工程鉴定或安全认证 (由 `tests/test_rag_redlines.py` 强制扫描).
 
 ## AI Assistant Modes
 
@@ -124,9 +171,11 @@ Vite 已配置 `/api` proxy 自动转发到 `http://localhost:8000`。
 
 ### V3.1 (Phase 6A)
 - `18_Real_LLM_Provider.md` · Real Provider 设计
-- `19_Engineering_RAG.md` · **占位 (Phase 6B)**
-- `20_AI_Grounding_and_Safety.md` · V3 + V6A 合并安全
-- `21_Phase6_Testing.md` · V3.1 测试策略
+- `20_AI_Grounding_and_Safety.md` · V3 + V6A + V6B 合并安全
+- `21_Phase6_Testing.md` · Phase 6A + 6B 测试策略
+
+### V3.2 (Phase 6B)
+- `19_Engineering_RAG.md` · **Engineering Knowledge Base + RAG + Evidence Grounding (implemented)**
 
 ## 重要声明 (Engineering Disclaimer)
 
@@ -139,11 +188,14 @@ Vite 已配置 `/api` proxy 自动转发到 `http://localhost:8000`。
 - **Real LLM (V3.1)**: OpenAI-compatible, Pydantic + redline 验证, 仍是解释层
 
 **系统能力边界:**
-- ✓ 识别问题 · 解释风险 · 计算优先级 · 推荐改造方向 · 给出成本等级 · 建议下一步行动 · 解释已有工程数据
+- ✓ 识别问题 · 解释风险 · 计算优先级 · 推荐改造方向 · 给出成本等级 · 建议下一步行动 · 解释已有工程数据 · 引用项目内部工程知识作背景
 - ✗ 不预测建筑倒塌 · 不替代专业结构检测 · 不替代安全鉴定 · 不生成自动加固方案 · 不出结构施工图 · 不生成钢筋设计 · 不替代结构工程师 · 不自动完成工程鉴定 · 不声称符合标准
 
-**V3.1 不做的事:**
-- ✗ 不接 RAG / Vector DB / knowledge/ 目录 (Phase 6B 留)
+**V3.2 不做的事:**
+- ✗ 不接 Vector DB / embedding / 语义检索
+- ✗ 不做互联网知识爬取 / 不引入外部工程标准
+- ✗ 不把知识库内容当作官方规范
+- ✗ 不让 AI 替代专业工程判断 / 不做自动结构设计
 - ✗ 不做 Conversation / 多轮对话 / conversation_id (Phase 6C 留)
 - ✗ 不接真实 Anthropic native SDK (用 OpenAI-compatible 代理)
 - ✗ 不做 streaming response / SSE
@@ -155,14 +207,17 @@ Vite 已配置 `/api` proxy 自动转发到 `http://localhost:8000`。
 - ✗ 不修改 V1 BHI / V2 Retrofit 算法
 - ✗ 不安装 openai / anthropic / langchain 等 SDK
 
-**AI 不得声称 (强制, V3 + V3.1):**
+**AI 不得声称 (强制, V3 + V3.1 + V3.2):**
 - ✗ "This building is safe" / "building will collapse"
 - ✗ "Automatic structural appraisal completed"
 - ✗ "Official safety certification"
 - ✗ "AI-designed reinforcement"
 - ✗ "Professional inspection completed" (without qualified qualifier)
 - ✗ "Complies with national standard" / 符合国家标准
+- ✗ **"The knowledge document proves …" / 把知识文档当作本建筑的证据**
+- ✗ **"Per the retrieved standard" / 把知识文档当作官方标准**
 - ✗ 即使 LLM 返回自己的 disclaimer, 也会被强制覆盖为 AI_DISCLAIMER
+- ✗ 即使 LLM 返回自己的 knowledge_evidence, 也会被丢弃, 只用检索器真实产出
 
 ## 技术栈
 
