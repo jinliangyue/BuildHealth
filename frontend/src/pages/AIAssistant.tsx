@@ -18,6 +18,9 @@ import { buildingsApi } from "../api/buildings";
 import { useApi } from "../hooks/useApi";
 import type { AIHealthStatus, AIResponse, Building } from "../types/api";
 
+/** Mirrors backend AIAskRequest.question max_length (app/ai/schemas.py). */
+const MAX_QUESTION_CHARS = 2000;
+
 export default function AIAssistant() {
   const [searchParams] = useSearchParams();
   const initialBuildingId = Number(searchParams.get("building_id")) || null;
@@ -192,6 +195,7 @@ export default function AIAssistant() {
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               rows={3}
+              maxLength={MAX_QUESTION_CHARS}
               placeholder="Type a question about the selected building…"
               className="w-full text-sm border border-slate-300 rounded p-2 resize-y focus:outline-none focus:border-blue-500"
             />

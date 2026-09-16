@@ -165,6 +165,69 @@ export const SEVERITY_COLORS: Record<Severity, string> = {
   high: "#EF4444",
 };
 
+/**
+ * Prototype Engineering Parameters · display mirror
+ * =================================================
+ * Single source of truth is the backend:
+ *   backend/app/analytics/config.py   - BHI weights, anomaly detection thresholds
+ *   backend/app/analytics/risk.py     - BHI risk-tier boundaries
+ *   backend/app/analytics/priority.py - RP-v1.0 priority boundaries
+ *
+ * These constants exist for LABELS and colour thresholds only. A risk level or
+ * a priority level is always computed by the backend and returned by the API;
+ * the UI must never re-derive one from a raw score.
+ *
+ * If a backend threshold changes, update it here and in the backend together.
+ * These are Prototype Design Parameters, not national or industry standards.
+ */
+
+/** BHI-v1.0 risk-tier boundaries. Mirrors risk.py (>=90 Normal, >=75 Attention, >=60 Abnormal). */
+export const BHI_RISK_BANDS: Record<RiskLevel, { min: number; max: number }> = {
+  Normal: { min: 90, max: 100 },
+  Attention: { min: 75, max: 89 },
+  Abnormal: { min: 60, max: 74 },
+  HighRisk: { min: 0, max: 59 },
+};
+
+/** Inclusive display range for a risk tier, e.g. "90-100". */
+export function bhiRiskBandLabel(level: RiskLevel): string {
+  const b = BHI_RISK_BANDS[level];
+  return `${b.min}-${b.max}`;
+}
+
+/**
+ * RP-v1.0 priority boundary for the High tier. Mirrors priority.py
+ * PRIORITY_LEVEL_THRESHOLDS and retrofit_service high_priority_count (>= 75.0).
+ */
+export const RETROFIT_PRIORITY_HIGH_MIN = 75;
+
+/** Prototype anomaly detection thresholds. Mirrors config.py THRESHOLD_RULES. */
+export interface DetectionThreshold {
+  metric: string;
+  medium: number | null;
+  high: number | null;
+  unit: string;
+  /** Decimal places used when rendering this metric's thresholds. */
+  decimals: number;
+}
+
+export const DETECTION_THRESHOLDS: DetectionThreshold[] = [
+  { metric: "crack_width", medium: 0.2, high: 0.3, unit: "mm", decimals: 2 },
+  { metric: "tilt", medium: 3.0, high: 4.0, unit: "‰", decimals: 1 },
+  { metric: "temperature", medium: 40.0, high: null, unit: "℃", decimals: 0 },
+  { metric: "humidity", medium: 85.0, high: null, unit: "%", decimals: 0 },
+];
+
+/** Render one threshold value, or an em dash when the tier is not configured. */
+export function formatThreshold(
+  value: number | null,
+  unit: string,
+  decimals: number,
+): string {
+  if (value === null) return "—";
+  return `${value.toFixed(decimals)} ${unit}`;
+}
+
 export const METRIC_LABELS: Record<Metric, string> = {
   crack_width: "Crack Width",
   tilt: "Tilt",

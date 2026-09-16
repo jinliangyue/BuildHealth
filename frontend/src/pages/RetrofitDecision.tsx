@@ -9,6 +9,7 @@ import {
   Card,
   LoadingState,
   ErrorState,
+  EmptyState,
   KPITile,
 } from "../components/ui/StateViews";
 import { retrofitApi } from "../api/retrofit";
@@ -18,6 +19,7 @@ import {
   CATEGORY_LABELS,
   PRIORITY_LEVEL_COLORS,
   PRIORITY_LEVEL_LABELS,
+  RETROFIT_PRIORITY_HIGH_MIN,
   type RetrofitCategory,
   type RetrofitOverviewResponse,
 } from "../types/api";
@@ -66,7 +68,7 @@ export default function RetrofitDecision() {
             <KPITile
               label="High Priority Items"
               value={data.items.reduce((s, i) => s + i.high_priority_count, 0)}
-              hint="priority ≥ 75"
+              hint={`priority ≥ ${RETROFIT_PRIORITY_HIGH_MIN}`}
               tone={
                 data.items.reduce((s, i) => s + i.high_priority_count, 0) > 0
                   ? "danger"
@@ -87,7 +89,10 @@ export default function RetrofitDecision() {
             subtitle="Sorted by overall priority · click to view building"
           >
             {data.items.length === 0 ? (
-              <LoadingState label="No buildings to rank" />
+              <EmptyState
+                title="No buildings to rank"
+                hint="Retrofit priority is computed per building. Add monitoring data to see rankings."
+              />
             ) : (
               <div className="space-y-2">
                 {data.items.map((item, idx) => {

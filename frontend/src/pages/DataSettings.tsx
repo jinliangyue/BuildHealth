@@ -3,20 +3,21 @@
  */
 import TopBar from "../components/layout/TopBar";
 import { Card } from "../components/ui/StateViews";
-import { BHI_WEIGHTS, DIMENSION_LABELS } from "../types/api";
+import {
+  BHI_WEIGHTS,
+  DETECTION_THRESHOLDS,
+  DIMENSION_LABELS,
+  RISK_LEVEL_COLORS,
+  bhiRiskBandLabel,
+  formatThreshold,
+  type RiskLevel,
+} from "../types/api";
 
-const RISK_THRESHOLDS = [
-  { level: "Normal", range: "90-100", color: "#10B981" },
-  { level: "Attention", range: "75-89", color: "#F59E0B" },
-  { level: "Abnormal", range: "60-74", color: "#F97316" },
-  { level: "HighRisk", range: "0-59", color: "#DC2626" },
-];
-
-const DETECTION_THRESHOLDS = [
-  { metric: "crack_width", medium: "0.20 mm", high: "0.30 mm" },
-  { metric: "tilt", medium: "3.0 ‰", high: "4.0 ‰" },
-  { metric: "temperature", medium: "40 ℃", high: "—" },
-  { metric: "humidity", medium: "85 %", high: "—" },
+const RISK_LEVEL_ORDER: RiskLevel[] = [
+  "Normal",
+  "Attention",
+  "Abnormal",
+  "HighRisk",
 ];
 
 export default function DataSettings() {
@@ -111,18 +112,18 @@ export default function DataSettings() {
             </tr>
           </thead>
           <tbody>
-            {RISK_THRESHOLDS.map((r) => (
-              <tr key={r.level}>
-                <td className="font-medium">{r.level}</td>
-                <td className="font-mono">{r.range}</td>
+            {RISK_LEVEL_ORDER.map((level) => (
+              <tr key={level}>
+                <td className="font-medium">{level}</td>
+                <td className="font-mono">{bhiRiskBandLabel(level)}</td>
                 <td>
                   <div className="flex items-center gap-2">
                     <span
                       className="w-4 h-4 rounded"
-                      style={{ background: r.color }}
+                      style={{ background: RISK_LEVEL_COLORS[level] }}
                     />
                     <span className="font-mono text-xs text-slate-500">
-                      {r.color}
+                      {RISK_LEVEL_COLORS[level]}
                     </span>
                   </div>
                 </td>
@@ -154,7 +155,10 @@ export default function DataSettings() {
               <td className="font-medium">Threshold Detection</td>
               <td className="text-xs">Absolute value comparison</td>
               <td className="font-mono text-xs">
-                {DETECTION_THRESHOLDS.map((t) => `${t.metric} (M:${t.medium} H:${t.high})`).join(" · ")}
+                {DETECTION_THRESHOLDS.map(
+                  (t) =>
+                    `${t.metric} (M:${formatThreshold(t.medium, t.unit, t.decimals)} H:${formatThreshold(t.high, t.unit, t.decimals)})`,
+                ).join(" · ")}
               </td>
             </tr>
             <tr>

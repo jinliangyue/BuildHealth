@@ -11,7 +11,9 @@ import DistributionPie from "../components/charts/DistributionPie";
 import { dashboardApi } from "../api/dashboard";
 import { useApi } from "../hooks/useApi";
 import { formatTimestamp, formatNumber } from "../hooks/format";
+import WorkflowStrip from "../components/layout/WorkflowStrip";
 import {
+  BHI_RISK_BANDS,
   RISK_LEVEL_COLORS,
   RISK_LEVEL_LABELS,
   SEVERITY_COLORS,
@@ -67,7 +69,7 @@ export default function Dashboard() {
     <div className="max-w-7xl mx-auto">
       <TopBar
         title="Platform Overview"
-        subtitle="Real-time aggregate metrics across all monitored buildings"
+        subtitle="Aggregate metrics across all monitored buildings · prototype decision support"
         right={
           <div className="flex items-center gap-2">
             <label className="flex items-center gap-1.5 text-xs text-slate-600">
@@ -88,6 +90,8 @@ export default function Dashboard() {
           </div>
         }
       />
+
+      <WorkflowStrip />
 
       {lastUpdated && (
         <div className="text-[11px] text-slate-400 -mt-3 mb-3">
@@ -122,9 +126,9 @@ export default function Dashboard() {
               label="Average BHI"
               value={formatNumber(data.average_health_score)}
               tone={
-                data.average_health_score >= 75
+                data.average_health_score >= BHI_RISK_BANDS.Attention.min
                   ? "ok"
-                  : data.average_health_score >= 60
+                  : data.average_health_score >= BHI_RISK_BANDS.Abnormal.min
                     ? "warning"
                     : "danger"
               }

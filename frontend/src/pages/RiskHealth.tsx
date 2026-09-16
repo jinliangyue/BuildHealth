@@ -24,6 +24,7 @@ import {
   RISK_LEVEL_COLORS,
   RISK_LEVEL_LABELS,
   SEVERITY_COLORS,
+  bhiRiskBandLabel,
   type Building,
   type HealthAssessment,
   type RiskAlert,
@@ -339,13 +340,7 @@ export default function RiskHealth() {
                   />
                   <span className="font-medium">{RISK_LEVEL_LABELS[k]}</span>
                   <span className="text-xs text-slate-500">
-                    ({k === "Normal"
-                      ? "90-100"
-                      : k === "Attention"
-                        ? "75-89"
-                        : k === "Abnormal"
-                          ? "60-74"
-                          : "0-59"})
+                    ({bhiRiskBandLabel(k)})
                   </span>
                 </div>
               ))}
