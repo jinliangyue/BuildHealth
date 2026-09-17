@@ -1,8 +1,8 @@
 # 28 · Project Fact Sheet
 
 > The single source of truth for anything written about BuildHealth elsewhere
-> (README, portfolio, résumé, presentation). Every statement here is checked
-> against the current code and documentation.
+> (README, documentation, presentations, summaries). Every statement here is
+> checked against the current code and documentation.
 >
 > Each item is tagged:
 > **[implemented]** working code that runs today ·

@@ -1,7 +1,7 @@
-# 24 · Overnight Sprint 2 · Engineering Optimization & Portfolio Readiness
+# 24 · Overnight Sprint 2 · Engineering Optimization & Documentation
 
 > 第二轮夜间自主工程强化。目标是在不破坏稳定版本的前提下，提升性能、
-> 可维护性与国际化作品集价值。不进入 Phase 6C。
+> 数据访问效率与可维护性。不进入 Phase 6C。
 
 **起始 commit**：`340fc87 docs: improve BuildHealth project presentation`
 **起始时间**：2026-09-16 夜（第二轮）
@@ -47,8 +47,8 @@ SQLite (8 张表)
 | Step 5 | 性能基准 | 待办 |
 | Step 6 | 工程数据可追溯性审计 | 待办 |
 | Step 7 | AI/RAG 最终安全审计 | 待办 |
-| Step 8 | `docs/25_Portfolio_English.md` | 待办 |
-| Step 9 | `docs/26_Interview_Technical_Deep_Dive.md` | 待办 |
+| Step 8 | `docs/25_Project_Technical_Overview.md` | 待办 |
+| Step 9 | 技术问答文档（已移出公开仓库） | 待办 |
 | Step 10 | 完整回归 | 待办 |
 | Step 11 | Git 提交 | 待办 |
 
@@ -219,25 +219,26 @@ Mock 会原样输出，而 Real provider 会抛 `safety_violation` —— 两个
 
 ## 6. Step 8-9 文档
 
-### Step 8 · `docs/25_Portfolio_English.md`
+### Step 8 · `docs/25_Project_Technical_Overview.md`
 
-英文作品集材料，面向国际工程咨询 / TIC / 工程数字化方向。含项目标题、
+英文项目技术总览，面向国际工程咨询 / TIC / 工程数字化方向。含项目标题、
 一句话描述、工程问题、架构、核心工作流、工程分析（异常检测 / BHI /
 风险分级 / 改造决策）、证据链、AI 助手、知识 RAG、技术栈、测试、
 安全与范围边界、模拟数据限制、Roadmap。
 
-定位明确写为土木工程学生构建的数字化工程决策支持系统，
-而不是「AI developer」。全部内容基于真实实现，无虚构。
+定位明确为数字化工程决策支持系统，而不是「AI developer」。
+全部内容基于真实实现，无虚构。
 
-### Step 9 · `docs/26_Interview_Technical_Deep_Dive.md`
+### Step 9 · 技术问答文档（已移出公开仓库）
 
-Step 9 要求的 17 个技术问题，每条四段：当前实现 / 技术理由 / 局限 / 后续改进。
-覆盖选题动机、为什么不是看板、异常检测、可解释性、BHI、原型参数、
+17 个技术问题，每条四段：当前实现 / 技术理由 / 局限 / 后续改进。
+覆盖工程问题定义、为什么不是看板、异常检测、可解释性、BHI、原型参数、
 风险分级、改造优先级、两类证据分离、RAG 选型、为什么不让 LLM 算、
 prompt injection 防护、确定性检索、如何扩展、N+1 在哪、
 如何接真实数据、生产化要改什么。
 
 不虚构生产经验：生产化那题明确写「当前是单机开发形态」并列出缺口。
+该文档属于问答准备材料，已于 2026-09-17 移出公开仓库。
 
 ### README 更新
 
@@ -279,6 +280,8 @@ AI 端点 `evidence` 与 `knowledge_evidence` 仍然分离且 disclaimer 强制�
 
 `3fea1c2` / `f27f6f7` / `340fc87` 保持不变。本轮分两个 commit：
 
-- `feat: improve BuildHealth engineering performance`
-- `docs: expand BuildHealth technical portfolio materials`
+- `80f1c6c` — 工程性能优化（N+1 批量化 + 参数端点）
+- `03114a4` — 文档整理（参数 API 化与性能审计记录）
+
+提交标题可在 `git log` 中查看；此处只记 commit hash 与内容摘要。
 

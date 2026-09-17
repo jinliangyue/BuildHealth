@@ -3,7 +3,7 @@
 > 最后一轮低风险工程性能优化，然后把 BuildHealth 封板到稳定、可展示状态。
 > 不扩大项目范围，不引入新基础设施，不进入 Phase 6C。
 
-**起始 commit**：`03114a4 docs: expand BuildHealth technical portfolio materials`
+**起始 commit**：`03114a4`（文档整理提交）
 **起始时间**：2026-09-17
 **基线**：Backend 401 · Frontend 97 · tsc 0 errors · build PASS · API smoke 19/19 · verify.sh PASS
 
@@ -195,4 +195,4 @@ class BuildingAnalysis:
 - 继续优化的收益递减：聚合端点已达每栋建筑一次计算、固定次数查询；
   再往下走要么引入缓存（违反本轮约束），要么改动数据模型
 
-**封板状态**：稳定、可复现、可展示、可面试深挖。
+**封板状态**：稳定、可复现、可展示，技术细节可追溯。

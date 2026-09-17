@@ -313,9 +313,14 @@ Not started; listed for direction.
 
 ## Positioning note
 
-This project was built by a civil engineering student as a digital
-decision-support system: domain problem first, engineering analytics second,
-AI as an explanation layer over deterministic results. The AI-assisted
-development accelerated the implementation, but the architecture — what is
-computed, what is explained, and what is refused — comes from the engineering
-constraints.
+BuildHealth is a digital decision-support system built around a domain problem
+first: engineering analytics second, and AI as an explanation layer over
+deterministic results.
+
+The architecture — what is computed, what is explained, and what the system
+refuses to do — comes from the engineering constraints rather than from the
+implementation. That boundary is the design decision the project is built
+around: every engineering number is produced by deterministic algorithms, the
+AI cannot alter or conclude anything, and the refusals (no appraisal, no
+collapse prediction, no automatic design, no certification) are enforced in
+code and covered by tests.

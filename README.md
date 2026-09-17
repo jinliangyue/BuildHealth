@@ -208,6 +208,8 @@ passes it down the call stack:
 |---|---|---|
 | AI context build | 16 queries · 2 anomaly runs · 59.0 ms | 7 queries · **1** anomaly run · **31.5 ms** |
 
+That is roughly a **47 % reduction** in that path's response time.
+
 Behavioural equivalence is asserted, not assumed: tests compare the
 reused-analysis path against a fresh per-building computation field by field,
 and the guard itself was mutation-tested.
