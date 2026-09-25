@@ -196,3 +196,61 @@ class BuildingAnalysis:
   再往下走要么引入缓存（违反本轮约束），要么改动数据模型
 
 **封板状态**：稳定、可复现、可展示，技术细节可追溯。
+
+---
+
+## 附:v1.1 release · 扩规模后基准(2026-09-26)
+
+### 触发
+
+v1.1 release prep 阶段把数据集从 3 栋 / 15 传感器 / 1350 记录扩到 30 栋 / 150 传感器 / 27000 记录(各 ×10 / ×30)。这是对"查询数不随建筑数增长"承诺的直接验证。
+
+### 扩规模实现(35 草案落地)
+
+- `backend/scripts/seed_data.py` 改造:BUILDING_TEMPLATES → BUILDING_PROFILES(只保留 metric_profiles + 结构类型 + design_life);`main(n_buildings=30, days=180, seed=42)` 按 profile_key 随机分配
+- 不动 `generate_timeseries` 函数体
+- 保留 `random.seed(42)` 保证可重现
+- 保留 `wipe_database` / `quality_flag="simulated"`
+
+### 新基准(M2 Air 8GB / SQLite / 30 buildings / 150 sensors / 27000 records / 5 次中位)
+
+| 端点 | queries | anomaly_calls | median (ms) | min (ms) |
+|---|---|---|---|---|
+| AI context build (building 1) | **7** | **1** | 98.8 | 96.3 |
+| GET /api/dashboard/summary | **7** | 30 | 2724.1 | 2715.4 |
+| GET /api/buildings/overview | **4** | 30 | 2712.2 | 2704.1 |
+| GET /api/retrofit/overview | **6** | 30 | 2793.3 | 2784.3 |
+| GET /api/buildings/{id}/retrofit | 6 | 1 | 95.9 | 93.2 |
+
+### 关键观察
+
+- **queries 数字全部不变**(7 / 7 / 4 / 6 / 6)— 与 Sprint 3 的承诺完全一致;"不随建筑数增长"被 10× 数据量验证
+- **AI context build anomaly_calls 仍为 1**(从 Sprint 3 的 2 → 1 保持)— 请求作用域复用继续生效
+- **单建筑端点耗时 ~3× 增加**(31.5 → 98.8 ms):数据从 1350 → 27000 records,异常检测算法计算量同比增加,符合预期
+- **聚合端点耗时 ~33× 增加**(87 → 2724 ms):因为 anomaly_calls=30(每栋建筑跑一次异常检测),N+1 形态仍在,但 queries 数不变(关键是查询结构没退化)
+
+### 仍然成立的承诺
+
+- 412+4 backend 测试 + 97 frontend 测试 + TypeScript 0 errors(verify.sh ALL CHECKS PASSED)
+- 等价性测试继续生效(新旧路径字段级一致,除 created_at 墙钟时间)
+- 变异测试继续生效(去掉请求作用域,测试立刻报 anomaly detection ran 2 times)
+
+### 没做的事
+
+- 跨 endpoint 的共享分析(消除 anomaly_calls=30)— 记录为技术债,不在 v1.1 范围
+- 异常检测结果持久化(避免每次重算历史)— 同上
+
+### 前后对比
+
+| 数字 | Sprint 3 (3 buildings) | v1.1 (30 buildings) | 倍数 |
+|---|---|---|---|
+| buildings | 3 | 30 | ×10 |
+| sensors | 15 | 150 | ×10 |
+| records | 1350 | 27000 | ×20 |
+| AI context queries | 7 | 7 | ×1(不变) |
+| dashboard queries | 7 | 7 | ×1(不变) |
+| retrofit overview queries | 6 | 6 | ×1(不变) |
+| buildings overview queries | 4 | 4 | ×1(不变) |
+| AI context anomaly_calls | 1 | 1 | ×1(不变) |
+
+**核心结论**:10× 建筑 + 20× 记录下,所有 queries / anomaly_calls 数字均不变。这是 v1.1 release 最有力的工程证据。

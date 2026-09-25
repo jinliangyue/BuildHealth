@@ -280,6 +280,24 @@ That is a 47 % reduction in that path's response time. Behavioural equivalence
 is asserted by tests that compare the reused-analysis path against a fresh
 per-building computation field by field.
 
+**[implemented · v1.1]** Re-measured against a **30 buildings / 150 sensors /
+27,000 records** scale on the same machine. Query counts are unchanged (the
+"queries do not grow with buildings" claim now proven at 10×):
+
+| Endpoint | 3 buildings | 30 buildings |
+|---|---|---|
+| AI context build | 7 queries · 1 anomaly run | 7 queries · 1 anomaly run |
+| `/api/dashboard/summary` | 7 queries | 7 queries |
+| `/api/buildings/overview` | 4 queries | 4 queries |
+| `/api/retrofit/overview` | 6 queries | 6 queries |
+
+Per-building latency increases ~3× (31.5 → 98.8 ms for AI context build) because
+anomaly detection runs against 27,000 records instead of 1,350; aggregate
+endpoints increase ~33× (87 → 2,724 ms) because anomaly detection runs per
+building (30 calls). All numbers stay local-development benchmarks.
+
+Full details: `docs/27_Overnight_Sprint_3_Final.md` §附 "v1.1 release · 扩规模后基准".
+
 **[limitation]** Different endpoints still recompute their own analysis; sharing
 across requests would require caching, which is deliberately out of scope.
 
@@ -289,7 +307,7 @@ across requests would require caching, which is deliberately out of scope.
 
 | Suite | Result |
 |---|---|
-| Backend (pytest) | **412 passed** across 28 test files |
+| Backend (pytest) | **416 passed** across 28 test files (412 baseline + 4 new: 3 knowledge-citation + 1 citation redline-degradation) |
 | Frontend (Vitest + Testing Library) | **97 passed** across 15 files |
 | TypeScript | 0 errors |
 | Production build | passes (714 modules) |

@@ -47,69 +47,45 @@ random.seed(42)
 # =================================================================
 # 数据模板
 # =================================================================
-BUILDING_TEMPLATES = [
-    {
-        "key": "healthy",
-        "name": "Building A · Healthy Tower",
-        "address": "Simulated Address 100, District Alpha",
-        "year_built": 2015,
+BUILDING_PROFILES = {
+    "healthy": {
         "building_type": "office",
         "structure_type": "frame",
-        "floors": 12,
-        "area": 8500.0,
         "design_life": 50,
-        "current_age": 11,
-        "description": "Simulated healthy office building with stable monitoring trend.",
         "metric_profiles": {
-            # baseline, trend_per_day, daily_amplitude, noise_std, event
             "crack_width":   {"base": 0.10, "trend": 0.0,    "amp": 0.003, "noise": 0.0015, "event": None},
-            "tilt":          {"base": 1.20, "trend": 0.0,    "amp": 0.01,  "noise": 0.01,  "event": None},
-            "temperature":   {"base": 22.0, "trend": 0.0,    "amp": 5.0,   "noise": 0.4,   "event": None},
-            "humidity":      {"base": 55.0, "trend": 0.0,    "amp": 8.0,   "noise": 1.0,   "event": None},
-            "electricity":   {"base": 120.0,"trend": 0.0,    "amp": 30.0,  "noise": 2.5,   "event": None},
+            "tilt":          {"base": 1.20, "trend": 0.0,    "amp": 0.01,  "noise": 0.01,   "event": None},
+            "temperature":   {"base": 22.0, "trend": 0.0,    "amp": 5.0,   "noise": 0.4,    "event": None},
+            "humidity":      {"base": 55.0, "trend": 0.0,    "amp": 8.0,   "noise": 1.0,    "event": None},
+            "electricity":   {"base": 120.0,"trend": 0.0,    "amp": 30.0,  "noise": 2.5,    "event": None},
         },
     },
-    {
-        "key": "attention",
-        "name": "Building B · Attention Plaza",
-        "address": "Simulated Address 200, District Beta",
-        "year_built": 2005,
+    "attention": {
         "building_type": "mixed",
         "structure_type": "shear",
-        "floors": 8,
-        "area": 5200.0,
         "design_life": 50,
-        "current_age": 21,
-        "description": "Simulated attention building with mild upward drift on certain metrics.",
         "metric_profiles": {
             "crack_width":   {"base": 0.15, "trend": 0.0008, "amp": 0.01, "noise": 0.005, "event": None},
-            "tilt":          {"base": 1.80, "trend": 0.004,  "amp": 0.10, "noise": 0.05, "event": None},
-            "temperature":   {"base": 23.0, "trend": 0.0,    "amp": 5.0,  "noise": 1.2, "event": None},
-            "humidity":      {"base": 60.0, "trend": 0.02,   "amp": 8.0,  "noise": 3.0, "event": None},
-            "electricity":   {"base": 95.0, "trend": 0.0,    "amp": 25.0, "noise": 6.0, "event": None},
+            "tilt":          {"base": 1.80, "trend": 0.004,  "amp": 0.10, "noise": 0.05,  "event": None},
+            "temperature":   {"base": 23.0, "trend": 0.0,    "amp": 5.0,  "noise": 1.2,   "event": None},
+            "humidity":      {"base": 60.0, "trend": 0.02,   "amp": 8.0,  "noise": 3.0,   "event": None},
+            "electricity":   {"base": 95.0, "trend": 0.0,    "amp": 25.0, "noise": 6.0,   "event": None},
         },
     },
-    {
-        "key": "abnormal",
-        "name": "Building C · Abnormal Complex",
-        "address": "Simulated Address 300, District Gamma",
-        "year_built": 1995,
+    "abnormal": {
         "building_type": "residential",
         "structure_type": "masonry",
-        "floors": 6,
-        "area": 3200.0,
         "design_life": 50,
-        "current_age": 31,
-        "description": "Simulated abnormal building with significant degradation trend on structural metrics.",
         "metric_profiles": {
             "crack_width":   {"base": 0.20, "trend": 0.005, "amp": 0.02, "noise": 0.01, "event": "spike"},
             "tilt":          {"base": 2.50, "trend": 0.015, "amp": 0.20, "noise": 0.10, "event": "spike"},
-            "temperature":   {"base": 24.0, "trend": 0.0,   "amp": 5.0,  "noise": 1.5, "event": None},
-            "humidity":      {"base": 70.0, "trend": 0.05,  "amp": 8.0,  "noise": 4.0, "event": None},
-            "electricity":   {"base": 80.0, "trend": 0.0,   "amp": 20.0, "noise": 8.0, "event": None},
+            "temperature":   {"base": 24.0, "trend": 0.0,   "amp": 5.0,  "noise": 1.5,  "event": None},
+            "humidity":      {"base": 70.0, "trend": 0.05,  "amp": 8.0,  "noise": 4.0,  "event": None},
+            "electricity":   {"base": 80.0, "trend": 0.0,   "amp": 20.0, "noise": 8.0,  "event": None},
         },
     },
-]
+}
+_PROFILE_KEYS = list(BUILDING_PROFILES.keys())
 
 
 COMPONENT_TEMPLATES = [
@@ -472,11 +448,26 @@ def run_risk_classification(
 # =================================================================
 # 主流程
 # =================================================================
-def main(days: int = 90, verbose: bool = True) -> Dict:
-    """完整数据初始化流程。返回统计字典。"""
+def main(
+    n_buildings: int = 30,
+    days: int = 180,
+    seed: int = 42,
+    verbose: bool = True,
+) -> Dict:
+    """完整数据初始化流程。返回统计字典。
+
+    v1.1 扩规模(2026-09-26):
+    - 默认 30 栋 / 5 sensors 每栋 / 180 天 / 1 sample/天 = 27000 records
+    - 每栋随机选 healthy/attention/abnormal profile(1:1:1 比例大致保持)
+    - 每栋的 year_built/floors/area/current_age 独立随机,facility 维度会有差异
+    - 保留 random.seed(seed)=42 保证可重现
+    """
+    random.seed(seed)
+
     if verbose:
         print("=" * 60)
         print("BuildHealth · Simulated Engineering Data Seeder")
+        print(f"  n_buildings={n_buildings}, days={days}, seed={seed}")
         print("=" * 60)
 
     wipe_database()
@@ -490,7 +481,23 @@ def main(days: int = 90, verbose: bool = True) -> Dict:
             "alerts": 0, "assessments": 0, "engineering_notes": 0,
         }
 
-        for template in BUILDING_TEMPLATES:
+        for i in range(n_buildings):
+            profile_key = random.choice(_PROFILE_KEYS)
+            profile = BUILDING_PROFILES[profile_key]
+            year_built = 1990 + random.randint(0, 30)
+            template = {
+                **profile,
+                "name": f"Simulated Building {i + 1} ({profile_key})",
+                "address": f"Simulated Address {i + 1}, District {chr(65 + i % 26)}",
+                "year_built": year_built,
+                "floors": random.choice([4, 6, 8, 12, 18]),
+                "area": random.uniform(2000, 12000),
+                "current_age": 2026 - year_built,
+                "description": (
+                    f"Simulated {profile_key} building (scaled from v1.0 templates)."
+                ),
+            }
+
             b = build_building(session, template)
             stats["buildings"] += 1
 
@@ -511,20 +518,20 @@ def main(days: int = 90, verbose: bool = True) -> Dict:
 
             cls = run_risk_classification(session, b, assessment, alerts)
 
-            # Phase 4 V2 · 工程笔记
-            note = build_engineering_note(session, b, comps, template["key"])
+            # Phase 4 V2 · 工程笔记(按 profile_key 复用)
+            note = build_engineering_note(session, b, comps, profile_key)
             if note is not None:
                 stats["engineering_notes"] += 1
 
             if verbose:
                 print(
-                    f"\n  → {b.name}\n"
+                    f"\n  → [{i + 1}/{n_buildings}] {b.name}\n"
                     f"     records={n_records}, alerts={len(alerts)} "
                     f"(H={sum(1 for a in alerts if a.severity=='high')}, "
                     f"M={sum(1 for a in alerts if a.severity=='medium')}, "
                     f"L={sum(1 for a in alerts if a.severity=='low')})\n"
                     f"     BHI={assessment.score:.2f} | {cls.risk_level}\n"
-                    f"     notes=1\n"
+                    f"     notes={1 if note else 0}\n"
                 )
 
         session.commit()

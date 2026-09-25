@@ -168,4 +168,63 @@
 
 ---
 
-最后更新:2026-09-20
+## 2026-09-26 · v1.1 release prep(5 个 commit,基于 ef095b5)
+
+**目标**:把仓库演化为"对外可发布"形态,同时保持工程叙事的纯度。
+
+### Commit 列表
+
+- `ef82070` — `docs: add CHANGELOG.md`
+- `a9adcf6` — `docs: add engineering review Q&A + sync 28 baseline to ef095b5`
+- `c642e8a` — `docs: add ROADMAP.md for external integrators`
+- `c0408b2` — `eval: add RAG retrieval evaluation set + runner + docs/19 §11`
+- `84f1563` — `feat(ai): mock provider answer cites knowledge evidence`
+- 待 commit — `data: scale seed 3 → 30 buildings + sync all docs`
+
+### 做了什么
+
+#### 文档类
+- 新增根目录 `CHANGELOG.md`(本文件,记录决策依据而非迭代日志)
+- 新增 `docs/29_Engineering_Review_QA.md`(结构/检测工程师咨询问题清单,伦理底线明示)
+- 新增根目录 `ROADMAP.md`(对外发布视角,与 `docs/09_Version_Roadmap.md` 内部演进路线分工)
+- `docs/28_Project_Fact_Sheet.md` §1 baseline 字段 62d21e4 → ef095b5,version v1.0 → v1.1
+- `docs/19_Engineering_RAG.md` 末尾新增 §11 检索评估集章节
+
+#### 评估/脚本类
+- 新增 `backend/scripts/retrieval_eval_set.jsonl`(50 条 query 覆盖 5 篇知识文档)
+- 新增 `backend/scripts/run_retrieval_eval.py`(计算 recall@3 + MRR + median latency)
+- **baseline 数字**:M2 Air 8GB / TF-IDF top_k=3 / **recall@3 = 0.46 / MRR = 0.3767 / 23 of 50 hits / 0.025 ms 中位延迟**
+
+#### 代码类
+- `backend/app/ai/mock_provider.py` 新增 `_format_knowledge_citation()` helper,把检索到的 knowledge_evidence 编织进 answer 文本(此前只在响应字段里)
+- 引用前缀固定 `"Per the platform's documented engineering notes..."`,避免被读成"本建筑情况"
+- 4 个 explain path(summary / risk / retrofit / anomaly)全部接入
+- 自检:如果 citation 自身触发禁词扫描,降级为空字符串(避免 _guard_safety 抛 safety_violation)
+- 新增 4 个测试(全部通过):有 knowledge 时引用 / 无 knowledge 时无引用 / 4 路径全部接入 / 自检降级
+
+#### 数据规模
+- `backend/scripts/seed_data.py` 把种子数据从 **3 栋 / 15 传感器 / 1350 记录**扩到 **30 栋 / 150 传感器 / 27000 记录**(×10 / ×30)
+- 保留 `random.seed(42)` / `quality_flag="simulated"` / `wipe_database`
+- 3 种 profile(healthy / attention / abnormal)1:1:1 比例大致保持
+- 不动 `generate_timeseries` 函数体
+- 新基准:`docs/27_Overnight_Sprint_3_Final.md` §附 + `docs/28_Project_Fact_Sheet.md` §17
+- **关键观察**:10× 建筑 + 20× 记录下,所有 queries / anomaly_calls 数字均不变 — "查询数不随建筑数增长"承诺被直接验证
+
+### 没做
+
+- 不创建 GitHub remote / 不 push(仓库保持本地)
+- 不重写 git 历史(ef095b5 之前所有 commit 保留)
+- 不动 docs/01-27 现有内容(29 cp 进 29 之后序号连续)
+- 不启动 39 工程师访谈(等用户后续安排咨询对象)
+- 不引入新依赖(38 Mock 重构只用现有 imports)
+
+### 测试
+
+- **416 backend tests passed**(412 baseline + 4 new knowledge-citation tests)
+- **97 frontend tests passed**(无变化)
+- TypeScript 0 errors
+- verify.sh ALL CHECKS PASSED
+
+### Release tag
+
+(待用户确认后)`v1.1.0` tag 打在本 commit 上。

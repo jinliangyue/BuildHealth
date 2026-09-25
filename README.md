@@ -273,7 +273,7 @@ no cloud services.
 
 | Suite | Result |
 |---|---|
-| Backend | **412 passed** (28 test files) |
+| Backend | **416 passed** (28 test files; 412 baseline + 4 new knowledge-citation tests added in v1.1) |
 | Frontend | **97 passed** (15 test files) |
 | TypeScript | 0 errors |
 | Production build | passes (714 modules) |
