@@ -11,8 +11,8 @@
 > **[limitation]** known and accepted ·
 > **[roadmap]** not built.
 
-**Version**：v1.0 · 2026-09-17
-**Baseline commit**：`62d21e4`
+**Version**：v1.1 · 2026-09-26 (v1.1 release prep)
+**Baseline commit**：`ef095b5`
 
 ---
 
