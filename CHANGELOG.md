@@ -1,7 +1,16 @@
 # BuildHealth · Changelog
 
-> 项目冻结于 commit `ef095b5`(2026-09-17)。
-> 本文件记录决策依据与冻结原因,不是迭代日志。
+> **v1.1.0 release**(2026-09-26,基于 commit `ef095b5`):
+> 把仓库演化为"对外可发布"形态 — 新增 CHANGELOG / ROADMAP / docs/29 工程评审
+> Q&A;新增 RAG 检索评估集(baseline recall@3=0.46);Mock provider 引用
+> knowledge evidence 进 answer;**种子数据扩规模 3→30 栋 / 1350→27000 记录**,
+> queries 数字保持 7/7/4/6 不变(10× 验证)。
+> 完整变更见 `## 2026-09-26 · v1.1 release prep` 章节。
+
+---
+
+项目冻结于 commit `ef095b5`(2026-09-17)。
+本文件记录决策依据与冻结原因,不是迭代日志。
 
 ---
 
