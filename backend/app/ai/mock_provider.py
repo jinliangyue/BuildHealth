@@ -69,6 +69,59 @@ class MockProvider:
         return response
     model = AI_MODEL  # "mock-deterministic-v1"
 
+    # ------------------------------------------------------------------
+    # Knowledge citation (v1.1 release prep · 2026-09-26)
+    # ------------------------------------------------------------------
+    def _format_knowledge_citation(
+        self, knowledge_evidence: Optional[List[dict]]
+    ) -> str:
+        """
+        Render the top knowledge evidence as a single citation sentence
+        appended to the answer. The sentence is prefixed with
+        "Per the platform's documented" so it reads as background, not as
+        a claim about the building.
+
+        Returns "" if no knowledge_evidence, so callers can safely
+        concatenate.
+
+        Contract:
+        - No schema change, no API contract change, no new dependency.
+        - Returns plain string; the caller appends it to `answer`, which
+          then flows through `_guard_safety` so the 43-redline scan
+          automatically covers the citation.
+        - The "Per the platform's documented" prefix prevents the citation
+          from being read as "the building is unsafe" / "complies with
+          standard" / other redline-class claims.
+        """
+        if not knowledge_evidence:
+            return ""
+        top = knowledge_evidence[0]
+        # Support both KnowledgeEvidence (pydantic) and plain dict.
+        if hasattr(top, "document"):
+            document = top.document
+            section = getattr(top, "section", "") or ""
+            score = getattr(top, "relevance_score", None)
+        else:
+            document = top.get("document", "knowledge base")
+            section = top.get("section", "") or ""
+            score = top.get("relevance_score")
+        score_str = (
+            f" (relevance {score:.2f})"
+            if isinstance(score, (int, float))
+            else ""
+        )
+        ref = f"{document} § {section}" if section else document
+        citation = (
+            f"Per the platform's documented engineering notes ({ref})"
+            f"{score_str}, this explanation draws on background concepts only."
+        )
+        # Self-check: if the citation triggers a redline (e.g. the referenced
+        # document title contains a forbidden phrase), degrade silently to ""
+        # so _guard_safety won't raise safety_violation on the answer.
+        if scan_response_for_redlines(answer=citation):
+            return ""
+        return citation
+
     def health_check(self) -> AIHealthStatus:
         return AIHealthStatus(
             status="ok",
@@ -136,7 +189,7 @@ class MockProvider:
             f"anomaly detection) and V2 (retrofit rule engine) deterministic "
             f"services. This AI summary is an explanation layer only."
         )
-        answer = " ".join(answer_parts)
+        answer = " ".join(answer_parts) + self._format_knowledge_citation(knowledge_evidence)
 
         # Key findings: 来自 BHI / Risk / Retrofit
         key_findings: List[AIKeyFinding] = []
@@ -286,7 +339,7 @@ class MockProvider:
             f"This is a Prototype Risk Classification, not a legally "
             f"binding building safety grade. Qualified professional review "
             f"is required for any safety-relevant conclusion."
-        )
+        ) + self._format_knowledge_citation(knowledge_evidence)
 
         key_findings = []
         if r.risk_level:
@@ -359,7 +412,7 @@ class MockProvider:
             f"prototype rule engine from existing monitoring / anomaly / "
             f"health / risk data. This is engineering decision support only; "
             f"all recommendations require qualified professional review."
-        )
+        ) + self._format_knowledge_citation(knowledge_evidence)
 
         key_findings = []
         for rec in rf.recommendations[:3]:
@@ -438,7 +491,7 @@ class MockProvider:
             f"anomaly detectors (threshold / rate-of-change / z-score). "
             f"This is not a real-world safety warning. Professional review "
             f"required for engineering action."
-        )
+        ) + self._format_knowledge_citation(knowledge_evidence)
 
         key_findings = []
         if high_count > 0:

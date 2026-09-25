@@ -255,3 +255,91 @@ def test_mock_provider_runtime_gate_allows_normal_output(full_context):
     resp = provider.generate_summary(full_context)
     assert resp.disclaimer
     assert resp.provider == "mock"
+
+
+# ============ Knowledge evidence citation (v1.1 release prep) ============
+def test_answer_cites_knowledge_evidence_when_present(full_context):
+    """
+    When knowledge_evidence is provided, the mock answer must append a
+    'Per the platform's documented engineering notes (...)' citation so the
+    background reference is visible in the answer text, not just in the
+    response field.
+    """
+    provider = MockProvider()
+    knowledge = [
+        {
+            "document": "anomaly_detection.md",
+            "section": "## Z-score",
+            "content": "Z-score detects departures from statistical history.",
+            "relevance_score": 0.85,
+            "source": "internal_kb",
+            "chunk_id": "anomaly_detection.md::3",
+        }
+    ]
+    resp = provider.generate_summary(full_context, knowledge_evidence=knowledge)
+    assert "Per the platform's documented" in resp.answer
+    assert "anomaly_detection.md" in resp.answer
+    assert "relevance 0.85" in resp.answer
+
+
+def test_answer_has_no_citation_when_no_knowledge_evidence(full_context):
+    """
+    When knowledge_evidence is None/empty, the answer must not contain
+    the citation prefix — keeps the response clean for the common case.
+    """
+    provider = MockProvider()
+    resp = provider.generate_summary(full_context, knowledge_evidence=None)
+    assert "Per the platform's documented" not in resp.answer
+
+
+def test_answer_citation_works_across_all_explain_paths(full_context):
+    """
+    The citation helper must be wired into all 4 explain paths
+    (summary / risk / retrofit / anomaly), not just summary.
+    """
+    provider = MockProvider()
+    knowledge = [
+        {
+            "document": "health_assessment.md",
+            "section": "## Dimensions",
+            "content": "BHI is a weighted sum of 5 dimensions.",
+            "relevance_score": 0.72,
+            "source": "internal_kb",
+            "chunk_id": "health_assessment.md::1",
+        }
+    ]
+    # summary path
+    s = provider.generate_summary(full_context, knowledge_evidence=knowledge)
+    assert "health_assessment.md" in s.answer
+    # risk path
+    r = provider.generate_answer(full_context, "what is the risk?", knowledge_evidence=knowledge)
+    assert "health_assessment.md" in r.answer
+    # retrofit path
+    rf = provider.generate_answer(full_context, "retrofit priority?", knowledge_evidence=knowledge)
+    assert "health_assessment.md" in rf.answer
+    # anomaly path
+    a = provider.generate_answer(full_context, "any anomalies?", knowledge_evidence=knowledge)
+    assert "health_assessment.md" in a.answer
+
+
+def test_citation_self_check_degrades_on_redline(full_context):
+    """
+    If the citation's own wording trips a redline (e.g. a referenced
+    document carries a banned phrase), the helper must degrade silently
+    to "" rather than letting _guard_safety raise safety_violation.
+    """
+    provider = MockProvider()
+    # Force a banned phrase into the citation by stuffing it in the section title.
+    knowledge = [
+        {
+            "document": "evil.md",
+            "section": "this building is safe",
+            "content": "irrelevant",
+            "relevance_score": 0.5,
+            "source": "internal_kb",
+            "chunk_id": "evil.md::0",
+        }
+    ]
+    # Should NOT raise safety_violation; helper degrades to "".
+    resp = provider.generate_summary(full_context, knowledge_evidence=knowledge)
+    assert "Per the platform's documented" not in resp.answer
