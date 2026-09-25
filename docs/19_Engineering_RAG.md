@@ -238,3 +238,51 @@ RAG **永远不能**让 AI 端点失败：
 - 本建筑的数据证据（sensor / anomaly / BHI / risk / retrofit）永远优先。
 - AI 不得声称知识文档「证明了」「确认了」本建筑的状况。
 - 任何可执行决策都需要**具备资质的专业复核**。
+
+---
+
+## 11. 检索评估集(v1.1 release prep · 2026-09-26)
+
+### 设计
+
+50 条 query,覆盖全部 5 篇知识文档;字面匹配 + 同义改写各 50%;query 长度从 4 字到 30 字;中英文混合。每条 query 都有明确的"期望命中文档" + "期望章节" + "期望关键词"。
+
+- 文件:`backend/scripts/retrieval_eval_set.jsonl`(50 条)
+- 评估脚本:`backend/scripts/run_retrieval_eval.py`
+- 评估指标:`recall@3` + `MRR` + `median_latency_ms`
+
+### Baseline(M2 Air 8GB,本地运行,TF-IDF 默认 top_k=3)
+
+| Metric | Value |
+|---|---|
+| n_queries | 50 |
+| n_hits | 23 / 50 |
+| **recall@3** | **0.46** |
+| **MRR** | **0.3767** |
+| median_latency_ms | 0.025 |
+
+### 解读
+
+- 46% 命中率符合"小语料 + 简单 TF-IDF + CJK 单字切分"的预期,不是 bug
+- 27 条 miss 主要集中在三类:
+  1. 中文短查询(如"4 档风险分级" → "四档风险分级"同义改写)
+  2. 概念性查询(如"BHI 是什么"、"系统不做什么")
+  3. 含禁词的查询触发回避路径
+- 后续优化方向(若启动,见 ROADMAP "AI 侧"候选):
+  - jieba 二元组切分(中文字段粒度提升)
+  - 同义词扩展(领域词表)
+  - query expansion(把"BHI 是什么"扩成"Building Health Index 是什么 评分")
+
+### 复跑命令
+
+```bash
+cd backend
+./venv/bin/python -m scripts.run_retrieval_eval
+# 或加 --top-k 5 / --eval-set <其他 jsonl>
+```
+
+### 与新阶段的衔接
+
+若 Phase 4 优化检索质量(分词 / 同义词 / query expansion),用同一份 `retrieval_eval_set.jsonl` 重跑;新数字追加到本节末尾,前后对比可证明优化方向是否有效。
+
+设计参考:`BuildHealth-prep-notes/34_Retrieval_Eval_Set_Draft.md`。

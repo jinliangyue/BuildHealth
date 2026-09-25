@@ -1,0 +1,55 @@
+# BuildHealth RAG retrieval evaluation set (50 queries)
+# Each line: {"qid": "...", "query": "...", "expect_doc": "...md", "expect_section": "...", "expect_keywords": [...]}
+# Source: BuildHealth-prep-notes/34_Retrieval_Eval_Set_Draft.md
+# Eval runner: backend/scripts/run_retrieval_eval.py
+# Metrics: recall@3 + MRR + median latency
+{"qid": "A01", "query": "三种异常检测方法", "expect_doc": "anomaly_detection.md", "expect_section": "## Overview", "expect_keywords": ["threshold", "rate of change", "z-score"]}
+{"qid": "A02", "query": "threshold 阈值检测 裂缝", "expect_doc": "anomaly_detection.md", "expect_section": "## Threshold", "expect_keywords": ["threshold", "crack", "mm"]}
+{"qid": "A03", "query": "变化率 双门限 rate of change", "expect_doc": "anomaly_detection.md", "expect_section": "## Rate of change", "expect_keywords": ["rate", "change", "dual", "gated"]}
+{"qid": "A04", "query": "Z-score 7 天窗口", "expect_doc": "anomaly_detection.md", "expect_section": "## Z-score", "expect_keywords": ["z-score", "7 day", "rolling"]}
+{"qid": "A05", "query": "哪些指标不做 z-score", "expect_doc": "anomaly_detection.md", "expect_section": "## Z-score disabled metrics", "expect_keywords": ["electricity", "humidity", "disabled"]}
+{"qid": "A06", "query": "为什么用电和湿度关掉 z-score", "expect_doc": "anomaly_detection.md", "expect_section": "## Z-score disabled metrics", "expect_keywords": ["electricity", "humidity", "natural variance"]}
+{"qid": "A07", "query": "异常去重窗口 多长时间", "expect_doc": "anomaly_detection.md", "expect_section": "## Deduplication", "expect_keywords": ["6", "hour", "deduplication"]}
+{"qid": "A08", "query": "severity 严重度 怎么分", "expect_doc": "anomaly_detection.md", "expect_section": "## Severity", "expect_keywords": ["severity", "high", "low"]}
+{"qid": "A09", "query": "为什么需要并行运行三种方法", "expect_doc": "anomaly_detection.md", "expect_section": "## Why parallel", "expect_keywords": ["parallel", "blind spot", "coverage"]}
+{"qid": "A10", "query": "dual gated 含义", "expect_doc": "anomaly_detection.md", "expect_section": "## Rate of change", "expect_keywords": ["dual", "gated", "relative", "absolute"]}
+{"qid": "A11", "query": "threshold 阈值为什么抓不到慢漂移", "expect_doc": "anomaly_detection.md", "expect_section": "## Threshold limitations", "expect_keywords": ["threshold", "drift", "slow"]}
+{"qid": "A12", "query": "rate of change 对噪声敏感吗", "expect_doc": "anomaly_detection.md", "expect_section": "## Rate of change limitations", "expect_keywords": ["noise", "rate", "sensitive"]}
+{"qid": "B01", "query": "BHI 是什么", "expect_doc": "health_assessment.md", "expect_section": "## Overview", "expect_keywords": ["BHI", "building", "health", "index"]}
+{"qid": "B02", "query": "5 维度权重分配", "expect_doc": "health_assessment.md", "expect_section": "## Dimensions", "expect_keywords": ["weight", "dimension", "sum", "1.0"]}
+{"qid": "B03", "query": "结构安全为什么占 0.40", "expect_doc": "health_assessment.md", "expect_section": "## Structural safety weight", "expect_keywords": ["structural", "0.40", "irreversible"]}
+{"qid": "B04", "query": "消防维度权重", "expect_doc": "health_assessment.md", "expect_section": "## Fire safety", "expect_keywords": ["fire", "safety", "0.15", "placeholder"]}
+{"qid": "B05", "query": "BHI 计算公式", "expect_doc": "health_assessment.md", "expect_section": "## Formula", "expect_keywords": ["formula", "weighted", "sum"]}
+{"qid": "B06", "query": "维度输入越界怎么处理", "expect_doc": "health_assessment.md", "expect_section": "## Input validation", "expect_keywords": ["out of range", "error", "clamp"]}
+{"qid": "B07", "query": "BHI 权重和是 1.0 怎么保证", "expect_doc": "health_assessment.md", "expect_section": "## Weight assertion", "expect_keywords": ["weight", "sum", "1.0", "assert"]}
+{"qid": "B08", "query": "节能维度怎么算", "expect_doc": "health_assessment.md", "expect_section": "## Energy performance", "expect_keywords": ["energy", "electricity", "coefficient"]}
+{"qid": "B09", "query": "设施状况评分依据", "expect_doc": "health_assessment.md", "expect_section": "## Facility condition", "expect_keywords": ["facility", "condition", "age", "design"]}
+{"qid": "B10", "query": "environmental quality 怎么量化", "expect_doc": "health_assessment.md", "expect_section": "## Environmental quality", "expect_keywords": ["environmental", "temperature", "humidity"]}
+{"qid": "B11", "query": "BHI 是行业标准吗", "expect_doc": "health_assessment.md", "expect_section": "## Prototype disclaimer", "expect_keywords": ["prototype", "standard", "disclaimer"]}
+{"qid": "B12", "query": "BHI 是不是越高越好", "expect_doc": "health_assessment.md", "expect_section": "## Range", "expect_keywords": ["range", "0", "100", "higher"]}
+{"qid": "C01", "query": "4 档风险分级", "expect_doc": "risk_classification.md", "expect_section": "## Tiers", "expect_keywords": ["Normal", "Attention", "Abnormal", "HighRisk"]}
+{"qid": "C02", "query": "Normal Attention 边界", "expect_doc": "risk_classification.md", "expect_section": "## Boundaries", "expect_keywords": ["Normal", "Attention", "90", "75"]}
+{"qid": "C03", "query": "HIGH 异常覆盖规则", "expect_doc": "risk_classification.md", "expect_section": "## Override rule", "expect_keywords": ["HIGH", "override", "Attention"]}
+{"qid": "C04", "query": "覆盖规则为什么是保守方向", "expect_doc": "risk_classification.md", "expect_section": "## Override rationale", "expect_keywords": ["conservative", "override", "alert"]}
+{"qid": "C05", "query": "风险分级不是概率模型吗", "expect_doc": "risk_classification.md", "expect_section": "## Not a probability model", "expect_keywords": ["probability", "deterministic", "rule"]}
+{"qid": "C06", "query": "高分也能被强制升级吗", "expect_doc": "risk_classification.md", "expect_section": "## Override rule", "expect_keywords": ["override", "upgrade", "HIGH"]}
+{"qid": "C07", "query": "HighRisk 阈值", "expect_doc": "risk_classification.md", "expect_section": "## Boundaries", "expect_keywords": ["HighRisk", "60", "below"]}
+{"qid": "C08", "query": "风险分级是不是安全等级", "expect_doc": "risk_classification.md", "expect_section": "## Not safety certification", "expect_keywords": ["safety", "certification", "decision support"]}
+{"qid": "C09", "query": "override rule 单向", "expect_doc": "risk_classification.md", "expect_section": "## Override rule", "expect_keywords": ["one-way", "upgrade", "override"]}
+{"qid": "C10", "query": "risk 不是概率", "expect_doc": "risk_classification.md", "expect_section": "## Not a probability model", "expect_keywords": ["probability", "risk", "deterministic"]}
+{"qid": "D01", "query": "RP-v1.0 改造优先级", "expect_doc": "retrofit_decision.md", "expect_section": "## Overview", "expect_keywords": ["RP", "priority", "sub-score"]}
+{"qid": "D02", "query": "优先级 5 个子分", "expect_doc": "retrofit_decision.md", "expect_section": "## Sub-scores", "expect_keywords": ["risk", "trend", "component", "urgency", "cost"]}
+{"qid": "D03", "query": "REC-v1.0 规则引擎", "expect_doc": "retrofit_decision.md", "expect_section": "## Rule engine", "expect_keywords": ["REC", "rule", "recommendation"]}
+{"qid": "D04", "query": "改造建议为什么不是自动设计", "expect_doc": "retrofit_decision.md", "expect_section": "## Decision support", "expect_keywords": ["decision", "support", "automatic", "design"]}
+{"qid": "D05", "query": "cost efficiency 怎么算", "expect_doc": "retrofit_decision.md", "expect_section": "## Cost efficiency", "expect_keywords": ["cost", "efficiency", "sub-score"]}
+{"qid": "D06", "query": "risk severity 权重最高吗", "expect_doc": "retrofit_decision.md", "expect_section": "## Sub-scores", "expect_keywords": ["risk", "severity", "0.35"]}
+{"qid": "D07", "query": "建议实时计算不落库", "expect_doc": "retrofit_decision.md", "expect_section": "## Not persisted", "expect_keywords": ["real-time", "computed", "not stored"]}
+{"qid": "D08", "query": "优先级最高 100 还是 99", "expect_doc": "retrofit_decision.md", "expect_section": "## Range", "expect_keywords": ["range", "0", "100", "priority"]}
+{"qid": "D09", "query": "trend 子分", "expect_doc": "retrofit_decision.md", "expect_section": "## Trend", "expect_keywords": ["trend", "sub-score", "0.25"]}
+{"qid": "D10", "query": "component importance 怎么定", "expect_doc": "retrofit_decision.md", "expect_section": "## Component importance", "expect_keywords": ["component", "importance", "0.20"]}
+{"qid": "E01", "query": "系统不做什么", "expect_doc": "engineering_redlines.md", "expect_section": "## What the system does NOT do", "expect_keywords": ["NOT", "refuse", "structural"]}
+{"qid": "E02", "query": "强制 disclaimer", "expect_doc": "engineering_redlines.md", "expect_section": "## Disclaimer", "expect_keywords": ["disclaimer", "forced", "server"]}
+{"qid": "E03", "query": "不能预测倒塌", "expect_doc": "engineering_redlines.md", "expect_section": "## What the system does NOT do", "expect_keywords": ["collapse", "predict", "refuse"]}
+{"qid": "E04", "query": "不能出具结构鉴定", "expect_doc": "engineering_redlines.md", "expect_section": "## What the system does NOT do", "expect_keywords": ["structural", "appraisal", "refuse"]}
+{"qid": "E05", "query": "知识库不能含标准编号", "expect_doc": "engineering_redlines.md", "expect_section": "## Knowledge corpus rules", "expect_keywords": ["standard", "number", "corpus", "scan"]}
+{"qid": "E06", "query": "为什么 RAG 不能引用标准", "expect_doc": "engineering_redlines.md", "expect_section": "## Knowledge corpus rules", "expect_keywords": ["standard", "knowledge", "authoritative"]}
