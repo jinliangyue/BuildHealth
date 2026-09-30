@@ -6,6 +6,12 @@
 > knowledge evidence 进 answer;**种子数据扩规模 3→30 栋 / 1350→27000 记录**,
 > queries 数字保持 7/7/4/6 不变(10× 验证)。
 > 完整变更见 `## 2026-09-26 · v1.1 release prep` 章节。
+>
+> **2026-09-30 · NAB 外部 benchmark(`benchmark/external/nab/`)**:
+> 三方法异常检测在 NAB 58 文件(52 含异常)上 point-level F1 **0.152**,
+> 超过任意单方法(最佳单方法 F1 0.146 · Rolling MAD)和 naive baseline
+> (0.017);Z-score precision 0.456 击败所有其他方法。三方法并行架构
+> 的设计意图在外部数据上得到验证。
 
 ---
 

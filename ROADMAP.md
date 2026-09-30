@@ -59,6 +59,14 @@
 - 27 · Sprint 3 请求作用域复用(AI context 路径 59.0 → 31.5 ms,本地基准)
 - 等价性测试 + 变异测试 + 跨语言行为探针
 
+### 外部验证 · NAB Benchmark(2026-09-30)
+
+- 三方法异常检测在 [NAB (Numenta Anomaly Benchmark)](https://github.com/numenta/NAB) 上验证
+- 58 个公开时间序列,52 个含 ground-truth 异常窗口
+- Point-level F1 0.152(Combined) > 任意单方法(最佳 0.146) > naive baseline (0.017)
+- Z-score precision 0.456,所有方法中最高
+- 脚本与结果在 `benchmark/external/nab/`(可独立复跑)
+
 ---
 
 ## 明确不做 · 范围边界
