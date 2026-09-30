@@ -317,7 +317,30 @@ Honest list of what is not there yet:
 - **No professional engineering validation** has been performed on the
   parameters or the outputs.
 
-## 12. Roadmap
+## 12. External validation
+
+Anomaly detection methods were evaluated against the
+[NAB (Numenta Anomaly Benchmark)](https://github.com/numenta/NAB)
+public dataset — 58 labeled time series, 52 with anomaly windows.
+
+| Method | Precision | Recall | F1 |
+|---|---|---|---|
+| **Combined (union)** | 0.182 | **0.152** | **0.152** |
+| Rolling MAD | 0.324 | 0.135 | 0.146 |
+| Threshold (percentile) | 0.188 | 0.121 | 0.132 |
+| Z-score (7d) | 0.456 | 0.036 | 0.075 |
+| Isolation Forest | 0.376 | 0.037 | 0.068 |
+| Rate of Change | 0.185 | 0.029 | 0.046 |
+| Naive (1% random) | 0.102 | 0.009 | 0.017 |
+
+Combined (BuildHealth's actual architecture) achieves the highest F1,
+outperforming any single method and 9× the naive baseline. Full
+methodology and what to put in a résumé vs avoid saying is in
+[`docs/30_NAB_External_Evaluation.md`](docs/30_NAB_External_Evaluation.md).
+
+Reproduce with: `bash scripts/verify_benchmarks.sh`
+
+## 13. Roadmap
 
 Not built — direction only:
 
