@@ -1,0 +1,59 @@
+# BuildHealth · Backend Dockerfile
+# =================================
+# Production-ish image for the FastAPI backend. Single-process application;
+# SQLite database is mounted as a volume at /app/data so that simulated
+# monitoring data persists across container restarts.
+#
+# Build:    docker build -f Dockerfile.backend -t buildhealth-backend .
+# Run:      docker run --rm -p 8000:8000 -v buildhealth_data:/app/data buildhealth-backend
+#
+# Image size: ~400 MB (python:3.11-slim + scipy/numpy/pandas wheels).
+# Healthcheck: GET /api/health (defined in docker-compose).
+
+FROM python:3.11-slim
+
+# ----------------------------------------------------------------------------
+# System layer
+# ----------------------------------------------------------------------------
+# gcc is needed at install time for any wheel that falls back to a source build
+# (rare with the pinned versions, but cheap insurance). Removed after pip install.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# ----------------------------------------------------------------------------
+# Python layer
+# ----------------------------------------------------------------------------
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /app/backend
+
+# Install dependencies first to leverage Docker layer cache
+COPY backend/requirements.txt ./
+RUN pip install -r requirements.txt
+
+# Copy the rest of the backend source
+COPY backend/ ./
+
+# ----------------------------------------------------------------------------
+# Data directory (mount a volume here in compose / run)
+# ----------------------------------------------------------------------------
+# config.py resolves DATA_DIR as <parent_of_backend>/data, so with
+# WORKDIR=/app/backend this resolves to /app/data. The entrypoint seeds
+# the database if /app/data/buildhealth.db is missing.
+RUN mkdir -p /app/data
+VOLUME ["/app/data"]
+
+# ----------------------------------------------------------------------------
+# Entrypoint
+# ----------------------------------------------------------------------------
+COPY backend/docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+EXPOSE 8000
+
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,0 +1,52 @@
+# Build context exclusions for both Dockerfiles.
+# Keep the build context small and free of host-only artefacts.
+
+# VCS
+.git
+.gitignore
+.gitattributes
+
+# CI
+.github
+
+# Python (backend image installs only requirements.txt; no caches)
+**/__pycache__
+**/*.py[cod]
+**/*.so
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.coverage
+**/htmlcov
+**/coverage.xml
+
+# Frontend (build stage installs from package.json; no node_modules in image)
+**/node_modules
+**/dist
+**/build
+**/.vite
+**/frontend/coverage
+
+# IDE / OS
+.idea
+.vscode
+.DS_Store
+Thumbs.db
+
+# Local data (mounted at runtime instead)
+data/
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+
+# Docs / benchmarks / scripts — kept in repo, but not needed inside images.
+# Uncomment if you want slimmer images; CI workflows don't need them either.
+# docs/
+# benchmark/
+
+# Logs
+**/*.log
+logs/
+
+# BuildHealth-prep-notes sibling directory (lives next to the repo, not inside)
+../BuildHealth-prep-notes

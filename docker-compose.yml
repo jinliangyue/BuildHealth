@@ -1,0 +1,63 @@
+# BuildHealth · docker-compose
+# =============================
+# One-shot local stack: backend (FastAPI + SQLite) and frontend (nginx
+# serving the Vite build). Brings up on http://localhost:8080 with
+# /api proxied to the backend service on the internal Docker network.
+#
+# Usage:
+#   docker compose up --build        # first run: builds images, seeds DB
+#   docker compose up -d             # detached after first build
+#   docker compose down              # stop, keep volume
+#   docker compose down -v           # stop AND wipe the SQLite volume
+#
+# AI provider stays on `mock` (no key required). To switch to a real
+# OpenAI-compatible endpoint, set AI_PROVIDER / AI_BASE_URL / AI_API_KEY
+# in the `backend.environment` block below or in a `.env` file.
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    image: buildhealth-backend:local
+    container_name: buildhealth-backend
+    restart: unless-stopped
+    volumes:
+      - buildhealth_data:/app/data
+    environment:
+      # AI provider defaults to mock (no key required).
+      # To use a real OpenAI-compatible endpoint, uncomment and set:
+      # AI_PROVIDER: openai-compatible
+      # AI_BASE_URL: https://your-endpoint.example.com/v1
+      # AI_API_KEY:  ${AI_API_KEY}
+      AI_PROVIDER: ${AI_PROVIDER:-mock}
+      AI_REQUEST_TIMEOUT: "30"
+    healthcheck:
+      # Use Python urllib instead of curl so the image stays minimal.
+      test: ["CMD", "python", "-c", "import urllib.request,sys; r=urllib.request.urlopen('http://localhost:8000/api/health',timeout=3); sys.exit(0 if r.status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+    # Port 8000 is reachable on the host for direct API access (curl, scripts).
+    # Not required if you only need the frontend on :8080.
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    image: buildhealth-frontend:local
+    container_name: buildhealth-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+
+volumes:
+  buildhealth_data:
+    name: buildhealth_data
+    # SQLite lives here; survives `docker compose down`, removed by `-v`.
