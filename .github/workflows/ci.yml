@@ -6,20 +6,32 @@ on:
   pull_request:
     branches: [main]
 
+# Cancel any in-flight run for the same ref to save CI minutes on rapid pushes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # ===========================================================================
+  # Backend · pytest on the supported Python versions
+  # ===========================================================================
   backend:
-    name: Backend Tests
+    name: Backend (${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.11", "3.12"]
     defaults:
       run:
         working-directory: backend
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: backend/requirements.txt
 
@@ -30,10 +42,13 @@ jobs:
 
       - name: Run pytest
         run: |
-          pytest tests/ -v --tb=short
+          pytest tests/ -v --tb=short --maxfail=5
 
+  # ===========================================================================
+  # Frontend · vitest + tsc + production build
+  # ===========================================================================
   frontend:
-    name: Frontend Tests & Build
+    name: Frontend
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -59,3 +74,91 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # ===========================================================================
+  # RAG retrieval eval · 50-query hand-curated set, recall@3 / MRR
+  # ===========================================================================
+  # Fast (~10s); runs every push. NAB external benchmark is opt-in via
+  # scripts/verify_benchmarks.sh and stays out of CI because it requires
+  # the ~30 MB NAB clone.
+  retrieval-eval:
+    name: RAG retrieval eval
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run retrieval eval
+        run: |
+          python -m scripts.run_retrieval_eval
+
+  # ===========================================================================
+  # Docker build smoke · ensures both images build with the current tree
+  # ===========================================================================
+  # No push, no registry; just verifies the Dockerfiles parse and build
+  # end-to-end on every push. Catches "broke the image with a careless
+  # COPY" before a reviewer runs `docker compose up` locally.
+  docker-build:
+    name: Docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.backend
+          push: false
+          load: true
+          tags: buildhealth-backend:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.frontend
+          push: false
+          load: true
+          tags: buildhealth-frontend:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke-test backend entrypoint (seed + start)
+        run: |
+          docker run --rm \
+            -v buildhealth_ci_data:/app/data \
+            -e AI_PROVIDER=mock \
+            -p 8000:8000 \
+            -d --name buildhealth_backend_smoke \
+            buildhealth-backend:ci
+          # Wait for /api/health to come up (entrypoint runs seed first)
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/api/health > /dev/null; then
+              echo "Backend healthy after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+          curl -sf http://localhost:8000/api/health | head -c 200
+          echo
+          docker stop buildhealth_backend_smoke
