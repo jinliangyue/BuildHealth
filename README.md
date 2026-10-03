@@ -372,16 +372,27 @@ BuildHealth/
 │   │   ├── knowledge/     loader · chunker · retriever
 │   │   └── db/            SQLAlchemy models and session
 │   ├── knowledge/         internal engineering knowledge base (5 documents)
-│   ├── scripts/           seed data · benchmark
+│   ├── scripts/           seed data · benchmarks · retrieval eval
 │   └── tests/             28 test files
 ├── frontend/
 │   ├── src/               React app (8 pages, components, api client, hooks)
 │   └── tests/             15 test files
 ├── docs/                  design, testing and architecture documentation
-└── scripts/verify.sh      one-command verification
+├── benchmark/external/    NAB anomaly-detection benchmark
+├── scripts/verify.sh      one-command local verification (backend + frontend + build)
+├── scripts/verify_benchmarks.sh  opt-in NAB regression check
+├── Dockerfile.backend     Python 3.11-slim image for FastAPI + SQLite
+├── Dockerfile.frontend    multi-stage build → nginx serving the Vite bundle
+├── nginx.conf             SPA fallback + /api proxy to backend service
+└── docker-compose.yml     one-shot local stack on http://localhost:8080
 ```
 
 ## Running locally
+
+Two ways: native (for development with hot-reload) or Docker (for a clean
+end-to-end smoke test that mirrors how the app actually runs).
+
+### Native (development with hot-reload)
 
 ```bash
 # Backend
@@ -395,6 +406,51 @@ uvicorn app.main:app --reload --port 8000
 cd frontend
 npm install
 npm run dev                          # http://localhost:5173
+```
+
+### Docker (one-shot stack)
+
+The stack runs both services on an internal Docker network. The frontend
+container reverse-proxies `/api/*` to the backend, so from the browser you
+only need one origin: <http://localhost:8080>.
+
+```bash
+# First run — builds images, seeds the SQLite database, starts both services
+docker compose up --build
+
+# Detached after the first build
+docker compose up -d
+
+# Open
+open http://localhost:8080           # frontend (nginx)
+curl http://localhost:8000/api/health  # backend directly, if you need it
+
+# Tear down (keep the DB volume for next time)
+docker compose down
+
+# Tear down AND wipe the simulated data
+docker compose down -v
+```
+
+Images are built from `Dockerfile.backend` (Python 3.11-slim, ~400 MB) and
+`Dockerfile.frontend` (multi-stage Node → nginx:alpine, ~40 MB). The backend
+runs `scripts.seed_data` automatically on first start via
+`backend/docker-entrypoint.sh`; subsequent restarts skip seeding.
+
+**Switching to a real LLM provider.** The default provider in Docker is
+`mock` (no API key required). To use an OpenAI-compatible endpoint, set
+`AI_PROVIDER=openai-compatible`, `AI_BASE_URL`, and `AI_API_KEY` in the
+`backend.environment` block of `docker-compose.yml` (or via an `.env` file).
+
+> Both modes seed the same simulated dataset. The data is regenerated every
+> time `scripts.seed_data` runs, so `docker compose down -v && up --build`
+> gives you a clean slate.
+
+### One-command verification
+
+```bash
+bash scripts/verify.sh              # backend tests + frontend tests + tsc + production build
+bash scripts/verify_benchmarks.sh   # opt-in: NAB external benchmark regression check
 ```
 
 ## Documentation
