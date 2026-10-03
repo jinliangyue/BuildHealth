@@ -1,0 +1,55 @@
+# pytest-cov configuration
+# =========================
+# Centralises which files are measured, which are excluded, and how the
+# summary reports are formatted. The current measured baseline is
+# **~95 % line coverage** across `app/` (416 tests, all passing).
+#
+# What this file intentionally does NOT do:
+#   - Set a `--cov-fail-under` threshold. Coverage is reported, not
+#     enforced: a failing build because of a missed branch on a defensive
+#     branch is more annoying than informative at this scale.
+#   - Hide missing lines from the report. `--cov-report=term-missing`
+#     surfaces them in the local dev run; CI gets `xml` for tooling.
+#
+# Run locally:
+#   pytest --cov=app --cov-report=term-missing --cov-report=html
+#   open htmlcov/index.html
+
+[run]
+# Measure the application package only. Tests, scripts, and bundled
+# knowledge docs are not part of the application's runtime surface.
+source = app
+branch = false
+
+# Honour pragma comments: `# pragma: no cover` skips that line.
+# Use sparingly; prefer real tests.
+exclude_lines =
+    pragma: no cover
+    # Defensive branches that exist to keep a misconfigured deployment
+    # from crashing the process — exercised in production but rarely in
+    # unit tests because the unit tests assume a sane environment.
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    pass
+    \.\.\.
+
+[report]
+# Show missing line numbers in the terminal report; CI gets xml only.
+show_missing = true
+skip_empty = true
+sort = -Cover
+
+# Don't count these paths even if `source` matches.
+exclude_also =
+    __init__.py
+    if __name__ == .__main__.:
+
+# Precision for the summary line
+precision = 0
+
+[html]
+directory = htmlcov
+
+[xml]
+output = coverage.xml

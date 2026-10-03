@@ -278,6 +278,7 @@ no cloud services.
 | TypeScript | 0 errors |
 | Production build | passes (714 modules) |
 | API smoke test | 19 / 19 endpoints responding |
+| Line coverage (backend) | ~**95 %** of `app/` (see `.coveragerc`; XML + HTML reports on every CI run) |
 
 Coverage extends beyond ordinary unit and API tests to properties that are easy
 to lose silently:
@@ -294,8 +295,17 @@ to lose silently:
 - **RAG** — the corpus contains no standard codes and no forbidden phrases
 - **API behaviour** — endpoint contracts, error paths and response shapes
 
+The backend test run uses `pytest-cov` (pinned in `requirements.txt`) with
+configuration in `.coveragerc`. Coverage is **reported, not enforced** —
+no `fail-under` threshold, because at this scale a missed defensive branch
+on a misconfigured deployment is more annoying than informative. CI uploads
+`coverage.xml` and `htmlcov/` as a 14-day artifact from the Python 3.11
+matrix leg; download it from the Actions run summary to inspect the HTML
+report locally.
+
 ```bash
-bash scripts/verify.sh        # backend tests → frontend tests → tsc → build
+bash scripts/verify.sh                                          # backend tests → frontend tests → tsc → build
+pytest --cov=app --cov-report=term-missing --cov-report=html    # coverage + HTML report (open htmlcov/index.html)
 ```
 
 ## 11. Limitations
