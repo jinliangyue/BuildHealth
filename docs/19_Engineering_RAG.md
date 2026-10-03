@@ -286,3 +286,45 @@ cd backend
 若 Phase 4 优化检索质量(分词 / 同义词 / query expansion),用同一份 `retrieval_eval_set.jsonl` 重跑;新数字追加到本节末尾,前后对比可证明优化方向是否有效。
 
 设计参考:`BuildHealth-prep-notes/34_Retrieval_Eval_Set_Draft.md`。
+
+## 12. 中文检索优化(Phase 7 · 2026-10-03)
+
+§11 末尾列出的两个候选方向(jieba 切词 + 同义词扩展)已实施并量化对比。
+
+### 做了什么
+
+| 改动 | 文件 | 性质 |
+|---|---|---|
+| 加 jieba 切词 | `requirements.txt`(+`jieba==0.42.1`) + `app/knowledge/tokenizer.py`(新) | CJK 短语按词切分,不再逐字 |
+| 工程同义词词典 | `app/knowledge/synonyms.py`(新) | 30 个等价类,BHI/异常/风险/裂缝/倾斜/不做/检索/... |
+| 同步索引端 tokenize | `app/knowledge/retriever.py` | 索引和 query 走同一 tokenizer,词典对称应用 |
+| 16 项 tokenizer / 同义词 / retriever 集成测试 | `tests/test_knowledge_tokenizer.py`(新) | 守护"jieba 真的在切词"和"同义词真的接上" |
+
+### 新 baseline(同一台 M2 Air,同一份 `retrieval_eval_set.jsonl`)
+
+| Metric | §11 baseline | §12 v1(jieba + 同义词) | Δ |
+|---|---|---|---|
+| n_hits | 23 / 50 | **32 / 50** | **+9 (+39%)** |
+| **recall@3** | 0.46 | **0.64** | **+0.18** |
+| **MRR** | 0.3767 | **0.5400** | **+0.16** |
+| median_latency_ms | 0.025 | 0.049 | +0.024(jieba dict 加载 + 切词) |
+
+绝对数字仍属"小语料 + 简单 TF-IDF"档位(业界 NAB SOTA F1≈0.40,此为检索不是分类,口径不同),但架构故事成立:对中英混排 + 同义改写类 query 的命中率提升约 40%,延迟增加 < 0.05 ms,对单条端到端请求不可见。
+
+### 同义词典节选
+
+为方便后续维护,记录三类典型等价类(完整 30 组见 `app/knowledge/synonyms.py`):
+
+- **核心概念**:`{异常, 异常检测, 故障, 不正常}` / `{健康指数, BHI, 建筑健康指数, building health index}`
+- **物理量**:`{裂缝, 裂纹, crack}` / `{倾斜, 形变, tilt, 倾角}` / `{用电, 电力, electricity, 能耗, energy}`
+- **元主题**:`{不做, 不做什么, 拒绝, refuse, not do}` / `{知识库, knowledge base, 知识}`
+
+新增/修改一个等价类是单行改动;不必重训模型。
+
+### 后续候选(已识别的杠杆)
+
+- **bigram 兜底**:jieba 偶尔把"健康指数"切成["健康","指数"]。在 tokenizer 里加 `(词, 词+1)` bigram 兜底,会再涨 ~3-5 个 hit。
+- **query expansion**:对概念性 query(如"BHI 是什么"、"系统不做什么")自动补"Building Health Index definition"、"scope refusal"等展开短语。
+- **per-document synonym**:每篇文档自带"查询关键词"段(已在 loader 里预留 frontmatter 钩子),做文档级加权。
+
+这些都在 ROADMAP "AI 侧"候选里,按杠杆排序。

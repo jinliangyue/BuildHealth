@@ -1,6 +1,6 @@
 """
-Knowledge Retriever · Phase 6B
-================================
+Knowledge Retriever · Phase 6B + 7
+====================================
 
 Pure-stdlib lexical retrieval: TF-IDF + cosine similarity.
 No sklearn, no vector DB, no embedding model. Deterministic.
@@ -14,15 +14,16 @@ Algorithm:
     6. score(q, d) = cosine(tfidf(q), tfidf(d))
     7. Return top-K with score > 0
 
-Tokens: lowercase English words (length >= 2, not in stop list) +
-single CJK characters (non-stop). Mixed-language support.
+Tokens (Phase 7): English / digit runs split as `[a-z0-9]+`; CJK
+runs are segmented by jieba (when available) and then expanded with
+the engineering synonym dictionary (`app.knowledge.synonyms`).
 """
 import math
-import re
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+from app.knowledge import tokenizer
 from app.knowledge.chunker import chunk_documents
 from app.knowledge.loader import load_knowledge_base
 from app.knowledge.schemas import (
@@ -32,45 +33,14 @@ from app.knowledge.schemas import (
     KnowledgeEvidence,
 )
 
-# Stop words: tiny set, both English and Chinese
-_STOP_WORDS = frozenset({
-    # English
-    "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
-    "and", "or", "but", "if", "then", "else", "of", "in", "on", "at", "to",
-    "for", "with", "by", "as", "from", "this", "that", "these", "those",
-    "it", "its", "i", "you", "he", "she", "we", "they", "them", "their",
-    "an", "as", "be", "do", "is", "no", "not", "so", "up", "use",
-    "which", "who", "whom", "whose", "what", "where", "when", "why", "how",
-    # Chinese 常见停用词 (单字)
-    "的", "了", "是", "在", "和", "与", "或", "但", "如", "则", "于",
-    "为", "以", "由", "本", "此", "这", "那", "它", "我", "你", "他", "她",
-    "们", "中", "上", "下", "也", "都", "而", "及", "之", "于", "不", "没",
-    "上", "下", "个", "些", "这", "那", "么", "吗", "呢", "啊", "吧", "嘛",
-})
-
-
-_TOKEN_RE = re.compile(r"[a-z0-9]+|[一-鿿]")
-
-
-def _is_cjk(token: str) -> bool:
-    """True if every char of token is a CJK ideograph."""
-    return bool(token) and all("一" <= c <= "鿿" for c in token)
-
 
 def _tokenize(text: str) -> List[str]:
-    """
-    Lowercase + extract tokens. Drop stop words.
+    """Compatibility wrapper for the index/scoring code below.
 
-    Length filter: ASCII tokens must be >= 2 chars (single letters are noise),
-    but a single CJK ideograph is a meaningful token and is kept.
+    All tokenization policy lives in `app.knowledge.tokenizer`; this
+    function exists only to keep the rest of the file readable.
     """
-    lower = text.lower()
-    raw = _TOKEN_RE.findall(lower)
-    return [
-        t
-        for t in raw
-        if t not in _STOP_WORDS and (len(t) >= 2 or _is_cjk(t))
-    ]
+    return tokenizer.tokenize(text, expand=True)
 
 
 class _TfidfIndex:
