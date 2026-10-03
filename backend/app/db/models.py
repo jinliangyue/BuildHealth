@@ -276,3 +276,38 @@ class EngineeringNote(Base):
     __table_args__ = (
         Index("idx_note_building", "building_id", "created_at"),
     )
+
+
+class AuditLog(Base):
+    """访问审计日志 · Phase 7
+
+    记录每个 HTTP 请求的最小必要元数据,用于"谁在何时访问了什么"的
+    可追溯性。本表**故意不存储**请求/响应 body 与 AI 输出文本:
+
+    - request/response body 大小不可控,且可能含敏感数据
+    - AI 输出已经过 43 条禁词扫描 + 强制 disclaimer,不需要二次审计
+    - 真正需要审计的是"访问行为"本身,而非"内容"
+
+    写入由 app.audit.middleware.AuditMiddleware 完成,查询由
+    app.audit.router 提供。受 docs/16_AI_Safety_Redlines.md 第 12 节
+    "审计日志"约束:不记录 PII,IP 仅保留前 24 字节(IPv4) / 前 19
+    字节(IPv6 mapped),超长 User-Agent 截断至 256 字符。
+    """
+
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    method = Column(String(8), nullable=False)               # GET / POST / ...
+    path = Column(String(512), nullable=False)               # /api/... ,无 query string
+    query_string = Column(String(512), nullable=True)        # 截断至 512 字符
+    status_code = Column(Integer, nullable=False)
+    duration_ms = Column(Float, nullable=False)               # 端到端耗时
+    client_ip = Column(String(64), nullable=False)           # 截断/脱敏后
+    user_agent = Column(String(256), nullable=True)          # 截断至 256 字符
+    request_id = Column(String(36), nullable=True, index=True)  # UUID4 字符串
+
+    __table_args__ = (
+        Index("idx_audit_time_path", "timestamp", "path"),
+        Index("idx_audit_status", "status_code", "timestamp"),
+    )

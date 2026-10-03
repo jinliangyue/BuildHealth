@@ -26,6 +26,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Audit middleware (Phase 7): writes one row per HTTP request to
+# `audit_logs`. Registered *after* CORS so that preflight OPTIONS
+# requests don't generate audit rows (CORS handles them before
+# reaching user code). Exempt paths (/api/health, /docs, /redoc,
+# /openapi.json) are listed inside AuditMiddleware.
+from app.audit.middleware import AuditMiddleware  # noqa: E402
+app.add_middleware(AuditMiddleware)
+
 
 @app.get("/")
 def root():
@@ -67,6 +75,7 @@ from app.api import buildings, sensors, monitoring, health, risk, dashboard
 from app.api import retrofit as retrofit_api
 from app.api import ai as ai_api
 from app.api import parameters as parameters_api
+from app.audit import router as audit_router
 
 app.include_router(buildings.router, prefix="/api")
 app.include_router(sensors.router, prefix="/api")
@@ -77,6 +86,7 @@ app.include_router(dashboard.router, prefix="/api")
 app.include_router(retrofit_api.router, prefix="/api")
 app.include_router(ai_api.router, prefix="/api")
 app.include_router(parameters_api.router, prefix="/api")
+app.include_router(audit_router.router)  # already prefixed with /api/audit
 
 
 if __name__ == "__main__":

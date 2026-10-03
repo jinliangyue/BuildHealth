@@ -53,8 +53,15 @@ def client(test_engine):
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
+    # AuditMiddleware reads app.state.audit_session_factory at request
+    # time (rather than going through dependency_overrides, because it
+    # runs outside request handlers). Point it at the same test engine
+    # so audit rows land in the in-memory DB.
+    app.state.audit_session_factory = SessionLocal
     yield TestClient(app)
     app.dependency_overrides.clear()
+    if hasattr(app.state, "audit_session_factory"):
+        del app.state.audit_session_factory
 
 
 @pytest.fixture
