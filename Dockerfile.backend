@@ -7,10 +7,15 @@
 # Build:    docker build -f Dockerfile.backend -t buildhealth-backend .
 # Run:      docker run --rm -p 8000:8000 -v buildhealth_data:/app/data buildhealth-backend
 #
-# Image size: ~400 MB (python:3.11-slim + scipy/numpy/pandas wheels).
+# Image size: ~400 MB (python:3.12-slim + scipy/numpy/pandas wheels).
 # Healthcheck: GET /api/health (defined in docker-compose).
+#
+# 2026-10-13: bumped from python:3.11-slim to python:3.12-slim to match
+# the local venv (which now hosts DeepEval 4.x for the LLM eval pipeline).
+# DeepEval 4.x requires Python 3.10+; 3.12 is the lowest version with
+# wheels for all our other pinned deps as of 2026-10.
 
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # ----------------------------------------------------------------------------
 # System layer
