@@ -12,11 +12,27 @@
 > 超过任意单方法(最佳单方法 F1 0.146 · Rolling MAD)和 naive baseline
 > (0.017);Z-score precision 0.456 击败所有其他方法。三方法并行架构
 > 的设计意图在外部数据上得到验证。
+>
+> **2026-10-13 · DeepEval 4.2.8 集成**(`defe54d`):4 工业指标 +
+> 1 项目专属 `no_unsafe_confirmation` GEval safety redline;Docker
+> 基础镜像升级 `python:3.11-slim → python:3.12-slim`,与本地 venv
+> 对齐。CI 默认不安装 deepeval,10 个 deepeval 测试中 5 个纯离线 +
+> 5 个 live 全部在 CI skip(本机配 OPENAI_API_KEY 时 live 跑)。
+>
+> **2026-10-16 · 止血轮 R1**(本轮):让 CI 转绿 + 审计落库 + 配置层
+> 真活。commit `47447b4` / `4167ad1` / `2e3f346`。详见本文件对应
+> 章节。
 
 ---
 
-项目冻结于 commit `ef095b5`(2026-09-17)。
-本文件记录决策依据与冻结原因,不是迭代日志。
+**历史叙事**:项目历史上曾于 commit `ef095b5`(2026-09-17)标记为
+"对外可发布版本",此后续有 9 个新增迭代 commit(NAB / 八连增量 /
+DeepEval)。`v1.1.0` tag(`32af4ad` → `4689f23`)与所引用的
+ef095b5 仍指向 09-17 状态,可作为求职材料"对外叙事基线"使用,
+**不应作为"当前 main 分支"** 引用。
+本文件同时承担决策日志 + 关键迭代锚点两种用途:每条新迭代在
+下方新章节记录"为什么改 + 改了什么 + 怎么验",作为 R2(RAG 红线)
+和后续代码审计的索引。
 
 ---
 
@@ -220,7 +236,10 @@
 #### 数据规模
 - `backend/scripts/seed_data.py` 把种子数据从 **3 栋 / 15 传感器 / 1350 记录**扩到 **30 栋 / 150 传感器 / 27000 记录**(×10 / ×30)
 - 保留 `random.seed(42)` / `quality_flag="simulated"` / `wipe_database`
-- 3 种 profile(healthy / attention / abnormal)1:1:1 比例大致保持
+- 3 种 profile(healthy / attention / abnormal)— 实测 `seed=42` / 30 栋
+  分布 **abnormal 14 / attention 7 / healthy 9**(1:1:1 期望各 10,
+  大致保持但偏 attention 少,因为 attention vs healthy 之间 BHI 边界
+  在 80 分附近 ±5 浮动)
 - 不动 `generate_timeseries` 函数体
 - 新基准:`docs/27_Overnight_Sprint_3_Final.md` §附 + `docs/28_Project_Fact_Sheet.md` §17
 - **关键观察**:10× 建筑 + 20× 记录下,所有 queries / anomaly_calls 数字均不变 — "查询数不随建筑数增长"承诺被直接验证
@@ -243,3 +262,69 @@
 ### Release tag
 
 (待用户确认后)`v1.1.0` tag 打在本 commit 上。
+
+---
+
+## 2026-10-16 · 止血轮 R1(CI 转绿 · 审计真落库 · 配置真活)
+
+**背景**:仓库公开 push 后 CI 4 次连红,本地全绿的"假相"实质上是
+文件 SQLite DB(已 seed)+ 内存 fixture 的非对称环境造成的:CI 干净
+克隆无 DB → 4 个 AI 红线测试因连真实 SQLite 而崩溃;`audit_logs` 表
+从未建出 → 审计特性对外"19/19 endpoints"实际只剩 17 用;3 处配置
+层声明但从未生效。
+
+**commit 序列**(本轮共 3 个本地 commit,领先 `origin/main` 4 个 commit):
+
+1. `47447b4` `test(ai): make 4 redline tests hermetic via in-memory fixture (CI green)`
+2. `4167ad1` `fix(db): create missing tables on startup (audit_logs) + regression test`
+3. `2e3f346` `chore(ci): apply .coveragerc, add eslint, type-check frontend tests`
+
+### 改了什么
+
+- **测试侧**:`backend/tests/test_ai_redlines.py` 末尾 4 个测试
+  (lines 210/226/241/254 in pre-fix snapshot)不再直接
+  `from app.db.session import SessionLocal` 硬连真实文件库,改用
+  conftest 已提供的 `test_session` fixture。**断言一字未改。**
+  本文件其他测试不受影响。
+- **schema 侧**:`backend/app/db/session.py` 新增 `init_db()` —
+  幂等 `CREATE TABLE IF NOT EXISTS`,`backend/app/main.py` 用
+  FastAPI `lifespan` 在启动时调用一次。`backend/tests/test_database.py`
+  新增 `test_init_db_creates_every_declared_table` — 锁定"声明表 ==
+  实际表"不变量(新增模型忘记建表会立刻被 CI 抓到)。**测试
+  conftest 用 `yield TestClient(app)`,不触发 lifespan,478 tests 仍
+  全绿(478 passed / 5 skipped,与本轮修复前 477 相比 +1 来自新回归
+  测试)。**
+- **配置侧**:
+  - `.coveragerc`:`./` → `backend/`,使 pytest 自动发现;老覆盖率
+    `backend/coverage.xml` 中 9 个 `__init__.py` 条目降至 0。
+  - 安装 `eslint@9` + `@typescript-eslint` + `eslint-plugin-react-hooks`,
+    新增 `frontend/eslint.config.js`,3 条规则与现有
+    `// eslint-disable-next-line` directives 1:1 对应,`npm run lint`
+    退出码 0 / 0 错误。
+  - `frontend/tsconfig.json` `include` 加入 `tests/` + `vitest/globals`
+    + `@testing-library/jest-dom` types,修复 6 处真实类型错误
+    (扩 `AIProviderType` 含 `openai-compatible`;删 `beforeEach` /
+    `vi` 未用 import;`future-anthropic-2027` 用 `as unknown as` cast
+    保留"未知 provider 回退"测试意图)。`npx tsc --noEmit` 退出 0。
+
+### 实测验收(全部按 §10 验收清单贴输出)
+
+- 干净克隆里 `tests/test_ai_redlines.py`:**29 passed**(修前 4 failed)
+- `grep SessionLocal backend/tests/test_ai_redlines.py`:**0 命中**
+- `pytest tests -q` 本地:**478 passed, 5 skipped**
+- `with TestClient(app)` 触发 lifespan → `/api/audit` 与
+  `/api/audit/stats` **200**(修前抛 `OperationalError`)
+- 真实 `uvicorn` 跑 5 请求(2 个 audit 系列被 middleware EXEMPT)→
+  `audit_logs` 行数 **+3**(行增长符合预期)
+- 数据零丢失:`buildings = 30`,`monitoring_records = 27006`
+- `cd frontend && npm run lint`:**exit 0**(空输出)
+- `cd frontend && npx tsc --noEmit`:**exit 0**
+
+### 没做(留给后续 R2 决定)
+
+- `git push origin main` — 等用户授权(R4 硬规则)
+- 跨项目横向汇总文档
+- 异常检测结果持久化 / 跨端点共享分析 / 前端补审计 UI(R2 候选)
+- `requirements.txt` 钉 `pytest==8.3.3` vs 本地实际 9.1.1 的漂移(E 任务)
+- 是否为 `BuildHealth/` 建自有 `CLAUDE.md`(目前仓库从父目录继承
+  "内容创作系统"CLAUDE.md,与本仓库无关)

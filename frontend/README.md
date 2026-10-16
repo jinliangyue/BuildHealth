@@ -1,6 +1,7 @@
 # BuildHealth Frontend
 
-Phase 0 Skeleton · React 18 + TypeScript + Vite + Tailwind + ECharts
+**Phase 6B / v1.1.0** · React 18 + TypeScript + Vite 5 + Tailwind 3
++ ECharts 5 + React Router 6
 
 ## 启动
 
@@ -27,13 +28,26 @@ npm run preview
 ```
 frontend/
 ├── src/
-│   ├── pages/           # 6 个页面（Phase 0 占位）
-│   ├── components/      # 通用组件（Phase 1 实现）
-│   ├── api/             # API client（Phase 0 占位）
-│   ├── types/           # TypeScript 类型（与后端 Pydantic 对应）
-│   ├── hooks/           # 自定义 Hooks
-│   ├── App.tsx          # 路由配置
-│   └── main.tsx         # 入口
+│   ├── pages/           # 8 个页面(Dashboard / Buildings / BuildingDetail
+│   │                    # / Monitoring / RiskHealth / RetrofitDecision
+│   │                    # / AIAssistant / DataSettings)
+│   ├── components/      # 通用组件 + charts/ 子目录(4 个 ECharts)
+│   ├── api/             # axios client + endpoint 封装
+│   ├── types/           # TypeScript 类型(后端 Pydantic 镜像,含
+│   │                    # AIProviderType 等)
+│   ├── hooks/           # 自定义 Hooks(useApi 等)
+│   ├── App.tsx          # 路由配置(9 条 Route)
+│   ├── main.tsx         # 入口
+│   ├── test/            # vitest setup(jsdom + @testing-library/jest-dom)
+│   └── index.css        # Tailwind base
+├── tests/               # 15 个 vitest 测试文件(97 用例)
+├── public/
+├── package.json
+├── vite.config.ts
+├── tailwind.config.js
+├── tsconfig.json        # include = src + tests (2026-10-16 起)
+├── tsconfig.node.json   # 仅 vite.config.ts
+└── eslint.config.js     # eslint 9 flat config(2026-10-16 起)
 ├── public/
 ├── package.json
 ├── vite.config.ts
@@ -41,15 +55,16 @@ frontend/
 └── tsconfig.json
 ```
 
-## 当前状态（Phase 0）
+## 当前状态(Phase 6B · v1.1.0)
 
-- ✅ Vite + React 18 + TypeScript 脚手架
-- ✅ Tailwind CSS 配置（含工程仪表盘主题色）
-- ✅ React Router 6 配置 + 6 个页面占位
-- ✅ Axios client 初始化
-- ✅ TypeScript 类型定义（与 Pydantic 对应）
-- ⏳ ECharts 图表组件未实现
-- ⏳ 实际 API 调用未实现
-- ⏳ 前端测试用例未编写
+- ✅ Vite + React 18 + TypeScript 5 脚手架
+- ✅ Tailwind CSS 3 配置(工程仪表盘主题色)
+- ✅ React Router 6 + 9 条路由
+- ✅ Axios client + 与后端 API 联通
+- ✅ TypeScript 类型定义(与 Pydantic 对应,0 errors 覆盖 src/ + tests/)
+- ✅ 4 个 ECharts 图表组件(BhiRadar / TrendChart / DistributionPie +
+  echarts 共用工具)
+- ✅ 15 个 vitest 测试文件 / 97 用例全过
+- ✅ `npm run lint` 退出 0(eslint 9 + react-hooks + no-console)
 
-详见 `../docs/03_System_Architecture.md`。
+详见 `../docs/03_System_Architecture.md` · `../docs/28_Project_Fact_Sheet.md` §18–§20。

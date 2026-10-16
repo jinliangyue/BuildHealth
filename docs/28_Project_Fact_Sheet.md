@@ -307,11 +307,11 @@ across requests would require caching, which is deliberately out of scope.
 
 | Suite | Result |
 |---|---|
-| Backend (pytest) | **416 passed** across 28 test files (412 baseline + 4 new: 3 knowledge-citation + 1 citation redline-degradation) |
+| Backend (pytest) | **478 passed, 5 skipped** across 33 `test_*.py` files (pytest collects 483 = 478 passed + 5 deepeval-live skipped) |
 | Frontend (Vitest + Testing Library) | **97 passed** across 15 files |
-| TypeScript | 0 errors |
-| Production build | passes (714 modules) |
-| API smoke test | 19 / 19 endpoints responding |
+| TypeScript | 0 errors (`tests/` included since 2026-10-16) |
+| Production build | passes (`vite build` ✓; 1,354 KB chunk) |
+| API smoke test | **21 / 21 endpoints responding** (incl. `/api/audit` and `/api/audit/stats`) |
 
 Beyond ordinary unit and API coverage, the suite pins properties that are easy
 to lose silently:
@@ -345,9 +345,12 @@ production build serially.
 - every field is schema-validated (Pydantic) with bounded truncation
 - the knowledge corpus is scanned for standard codes and forbidden phrases
 
-**[limitation]** There is no authentication, no authorisation, no rate limiting,
-and no audit log. CORS is restricted to local development origins. This is a
-single-machine prototype.
+**[limitation]** There is no authentication, no authorisation, and no rate
+limiting. An audit log is implemented (`audit_logs` table written by
+`AuditMiddleware`; queryable via `GET /api/audit` and `GET /api/audit/stats`)
+but holds only metadata (method, path, status, duration, masked client IP,
+short request id) — never request/response bodies or AI text. CORS is
+restricted to local development origins. This is a single-machine prototype.
 
 ## 20. Technology stack
 
@@ -356,11 +359,11 @@ single-machine prototype.
 | Layer | Technology |
 |---|---|
 | Frontend | React 18 · TypeScript 5 · Vite 5 · Tailwind CSS 3 · ECharts 5 · React Router 6 · axios |
-| Backend | Python 3.9 · FastAPI 0.115 · SQLAlchemy 2.0 · Pydantic 2.9 · uvicorn |
+| Backend | Python 3.12 (local venv 3.12.14) · FastAPI 0.115 · SQLAlchemy 2.0 · Pydantic 2.9 · uvicorn · CI matrix: 3.9 / 3.11 / 3.12 · Docker base: `python:3.12-slim` |
 | Analytics | NumPy · SciPy · pandas |
 | Database | SQLite (single file, development) |
 | AI | Mock provider (default) · OpenAI-compatible HTTP provider (optional) · no vendor SDK |
-| Retrieval | Python standard library only (TF-IDF + cosine) |
+| Retrieval | Python stdlib (TF-IDF + cosine) · jieba (zh tokenisation) · 30-group engineering synonym dict (only external dep beyond stdlib) |
 | Testing | pytest · FastAPI TestClient · Vitest · Testing Library |
 
 Not used: no vector database, no LangChain, no scikit-learn, no Redis, no
@@ -379,8 +382,11 @@ message queue, no cloud services. **[implemented]**
 4. **Retrofit recommendations are not persisted** — computed per request.
 5. **Different endpoints recompute their own analysis**; there is no
    cross-request sharing.
-6. **Retrieval is simple**: TF-IDF with per-character Chinese tokenisation, no
-   stemming, no synonym handling.
+6. **Retrieval is lexical-only** (TF-IDF + cosine). Chinese tokenisation uses
+   jieba with an engineering synonym dictionary (commit 3d540a2) — no
+   stemming, no semantic embeddings, no re-ranking. Measured over a 50-query
+   evaluation set in `backend/scripts/run_retrieval_eval.py`:
+   `recall@3 = 0.64, MRR = 0.54` (before jieba: 0.46 / 0.38).
 7. The **fire-safety dimension is a placeholder**, derived from floors and age
    rather than real fire-system data.
 8. The **`retrofit_recommendations` table is unused**.

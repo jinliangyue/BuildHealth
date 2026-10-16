@@ -273,12 +273,12 @@ no cloud services.
 
 | Suite | Result |
 |---|---|
-| Backend | **416 passed** (28 test files; 412 baseline + 4 new knowledge-citation tests added in v1.1) |
+| Backend | **478 passed, 5 skipped** (33 `test_*.py` files; pytest collects 483 = 478 passed + 5 deepeval-live skipped) |
 | Frontend | **97 passed** (15 test files) |
-| TypeScript | 0 errors |
-| Production build | passes (714 modules) |
-| API smoke test | 19 / 19 endpoints responding |
-| Line coverage (backend) | ~**95 %** of `app/` (see `.coveragerc`; XML + HTML reports on every CI run) |
+| TypeScript | 0 errors (`tests/` included since 2026-10-16) |
+| Production build | passes (`vite build` ✓; chunk 1,354 KB) |
+| API smoke test | **21 / 21 endpoints responding** (incl. audit log; verified on real `uvicorn`) |
+| Line coverage (backend) | **95 %** of `app/` (2,465 statements · 125 missing · TOTAL 95 %) — config in `backend/.coveragerc`; XML + HTML reports on every CI run |
 
 Coverage extends beyond ordinary unit and API tests to properties that are easy
 to lose silently:

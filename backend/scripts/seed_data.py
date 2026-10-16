@@ -4,14 +4,20 @@
 
 设计原则：
 1. 不使用 random() 直出 - 每个指标都有 baseline + trend + periodic + noise + 可选 anomaly event
-2. 3 种建筑原型：Healthy / Attention / Abnormal
+2. 3 种建筑原型：Healthy / Attention / Abnormal(实测 seed=42 分布
+   abnormal 14 / attention 7 / healthy 9,与 1:1:1 期望大致保持,
+   注意 attention 与 healthy 之间因 BHI 边界 ±5 浮动而偏移)
 3. 5 类指标：crack_width / tilt / temperature / humidity / electricity
-4. 90 天 × 每天 1 条（足够触发统计检测 + 降低存储压力）
+4. 180 天 × 每天 1 条(足以触发统计检测,降低存储压力)
 5. 写入数据库时 quality_flag='simulated' 强制标识
 
+默认参数(`main` 签名):n_buildings=30, days=180, seed=42, 5 传感器每栋
+—— 即默认产出 **30 栋 / 150 传感器 / 27,000 条记录**(v1.1.0 起,
+commit c45dd32)。
+
 生成步骤：
-1. 清理已有数据（dev only）
-2. 创建 3 栋建筑
+1. 清理已有数据（dev only;调用前必须显式接受 wipe_database 副作用）
+2. 创建 n_buildings 栋建筑（默认 30）
 3. 每栋 5 个构件 + 5 个传感器（每个 metric 一个）
 4. 生成 90 天监测记录
 5. 立即跑异常检测 → 写入 RiskAlert
@@ -456,9 +462,11 @@ def main(
 ) -> Dict:
     """完整数据初始化流程。返回统计字典。
 
-    v1.1 扩规模(2026-09-26):
-    - 默认 30 栋 / 5 sensors 每栋 / 180 天 / 1 sample/天 = 27000 records
-    - 每栋随机选 healthy/attention/abnormal profile(1:1:1 比例大致保持)
+    v1.1 扩规模(2026-09-26, commit c45dd32):
+    - 默认 30 栋 / 5 sensors 每栋 / 180 天 / 1 sample/天 = 27,000 records
+    - 每栋随机选 healthy/attention/abnormal profile — 实测 seed=42 / 30 栋
+      分布 **abnormal 14 / attention 7 / healthy 9**(与 1:1:1 期望各 10
+      大致保持,attention vs healthy 因 BHI 边界 80±5 浮动而偏移)
     - 每栋的 year_built/floors/area/current_age 独立随机,facility 维度会有差异
     - 保留 random.seed(seed)=42 保证可重现
     """

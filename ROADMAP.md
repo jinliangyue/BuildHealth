@@ -96,11 +96,8 @@
 
 ### 工程侧(补强 demo / 简历用)
 
-- 种子数据扩规模:3 栋 → 30 栋 / 1350 → 27000 条记录(让"查询数不随建筑数增长"有真实证据)
 - 跨 endpoint 共享分析结果(消除已知 N+1 形态)
 - 异常检测结果持久化(避免每请求重算历史)
-- 持久化审计日志(谁 / 何时 / 看了什么)
-- Ingestion 适配层(CSV / 标准时序协议)
 
 ### 数据侧
 
@@ -110,15 +107,35 @@
 
 ### AI 侧
 
-- 检索评估集(50 个 query + recall@3 / MRR)— 见 `BuildHealth-prep-notes/34`
-- 中文检索优化(jieba 二元组 + 同义词扩展)
 - Provider 对比 benchmark(Mock vs Real 延迟 / 失败率 / 成本)
-- 离线 LLM 输出评估集(50 个问答 + 人工 rubric)
 
 ### 待外部条件
 
 - 结构工程师 / 检测工程师专业评审(补"无专业验证"空白)
 - 用真实结构检测结论做参数校准
+
+### 2026-09-26 → 2026-10-13 · 已完成(后续可回收叠加,不再列入候选)
+
+- **种子数据扩规模**:3 栋 → 30 栋 / 1,350 → 27,006 条记录。`seed_data.py`
+  默认 `n_buildings=30, days=180, seed=42`。commit `c45dd32`。
+- **持久化审计日志**:`AuditMiddleware` 每个 HTTP 请求一行
+  (`audit_logs` 表,9 张表之一)。`GET /api/audit` + `GET /api/audit/stats`
+  提供查询。自检:`grep "audit write failed" data/buildhealth.db` 不应出现。
+  commit `4c215de` + Schema init 修复 commit `4167ad1`。
+- **Ingestion 适配层 CSV**:`backend/scripts/import_csv.py` 命令行工具。
+  commit `154558f`。
+- **检索评估集**:`backend/scripts/run_retrieval_eval.py` + 50 query JSONL
+  (`scripts/retrieval_eval_set.jsonl`)。当前实测 `recall@3 = 0.64,
+  MRR = 0.54`。commit `c0408b2`。
+- **中文检索优化**:jieba 分词 + 30 组工程同义词词典。`recall@3`
+  0.46 → 0.64,`MRR` 0.3767 → 0.5400。详见 `docs/19_Engineering_RAG.md`。
+  commit `3d540a2`。
+- **离线 LLM 输出评估集**:30 query 离线评估 + runner + DeepEval 4.2.8
+  4 工业指标(Faithfulness / AnswerRelevancy / ContextualRecall /
+  ContextualPrecision)+ 1 项目专属 GEval redline safety check
+  (`no_unsafe_confirmation`)。CI 默认不安装 deepeval,10 个 deepeval 测试
+  中 5 个离线 + 5 个 live 全部 skip(避免污染 CI 数字)。commit `1a9de25`
+  + `defe54d`。
 
 ---
 
@@ -126,18 +143,16 @@
 
 如果目标是**秋招数字工程 / 后端 / AI 工程岗**:
 
-1. 扩数据集 + 重跑 benchmark(让最强性能故事有真实证据)
-2. RAG 检索评估集(从"我做了 RAG"变成"我评估了我的 RAG")
+1. 跨 endpoint 共享分析结果(消除已知 N+1 形态)
+2. 异常检测结果持久化(避免每请求重算历史)
 3. Mock provider 改造:基于检索结果生成,而非纯模板拼接
 
 如果目标是**秋招 TIC / 工程咨询岗**:
 
 1. 结构工程师 30 分钟咨询 + 写 docs/29
-2. 扩数据集
-3. RAG 评估集
 
 任一方向,Phase 1-3 都是 ROI 最高的杠杆点。
 
 ---
 
-最后更新:2026-09-20
+最后更新:2026-10-16(止血轮,R1 修复)· 前序版本:2026-09-20
