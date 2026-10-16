@@ -22,3 +22,30 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def init_db() -> None:
+    """Create any missing tables on the live engine. Idempotent.
+
+    This project has no migration tool (alembic is commented out in
+    requirements.txt; seed_data.py runs ``Base.metadata.create_all``
+    only against a fresh DB). So when a model is added later (e.g.
+    AuditLog in commit 4c215de) the pre-existing on-disk SQLite is
+    silently out of schema: AuditMiddleware._safe_write swallows
+    OperationalError to WARNING, and ``/api/audit`` returns 500.
+
+    ``init_db()`` runs ``create_all`` against the live engine — it
+    issues only ``CREATE TABLE IF NOT EXISTS`` statements and never
+    drops or rewrites existing data. Safe to call on every startup.
+
+    Called once from the FastAPI ``lifespan`` in app.main. Tests do
+    NOT trigger lifespan (conftest uses ``yield TestClient(app)``
+    not ``with TestClient(app)``), so test fixtures stay in control
+    of schema lifetime.
+    """
+    # Imported lazily so creating the engine doesn't require models
+    # to be importable (engine is created at module import time, but
+    # Base.metadata.create_all needs every model class registered).
+    from app.db.base import Base
+    from app.db import models  # noqa: F401  · ensure models register onto Base.metadata
+    Base.metadata.create_all(bind=engine)

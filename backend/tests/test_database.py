@@ -18,6 +18,39 @@ def test_all_tables_created(test_engine):
     assert expected.issubset(inspector_tables)
 
 
+def test_init_db_creates_every_declared_table(test_engine):
+    """Regression guard: every table declared on ``Base.metadata`` must
+    actually exist on a freshly-created engine.
+
+    Why this lives in ``test_database.py`` next to ``test_all_tables_created``
+    instead of in ``test_audit.py``:
+
+    * It is a schema-completeness invariant, not an audit feature test.
+    * The 4c215de-AuditLog-bug class of regression ("model added but table
+      missing on the live DB") can only be caught by comparing the
+      declared set against reality. ``test_all_tables_created`` only
+      checks the 6 Phase-1 tables; this test covers the full 9-table
+      current declaration so a missing model import in ``app/db/models.py``
+      or a typo in a ``__tablename__`` fails CI immediately.
+    """
+    from sqlalchemy import inspect
+    declared = set(Base.metadata.tables.keys())
+    real = set(inspect(test_engine).get_table_names())
+    missing = declared - real
+    assert not missing, (
+        f"Declared tables missing from DB after create_all: {sorted(missing)}. "
+        f"Hint: a new model class was added in app/db/models.py but not "
+        f"imported (the import is what registers it on Base.metadata). "
+        f"Adding the missing import fixes the failure."
+    )
+    # Symmetry: nothing lurking in the DB that isn't declared.
+    assert real == declared, (
+        f"DB contains tables not declared on Base.metadata: "
+        f"{sorted(real - declared)}. Check that create_all + drop_all "
+        f"in the test_engine fixture are still symmetric."
+    )
+
+
 def test_building_crud(test_session):
     b = m.Building(
         name="X", address="Y", year_built=2000, building_type="office",

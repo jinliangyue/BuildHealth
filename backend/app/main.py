@@ -2,8 +2,32 @@
 BuildHealth FastAPI Application
 Phase 1 V1 + Phase 4 V2 retrofit + Phase 5 V3 AI Engineering Assistant
 """
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan: bring the on-disk schema up to date on startup.
+
+    Init DB *here* (not at module-import time) for two reasons:
+
+    1. Idempotent ``CREATE TABLE IF NOT EXISTS`` so models added after
+       the last ``seed_data.py`` run (e.g. AuditLog in commit 4c215de)
+       appear without wiping data. See ``app.db.session.init_db`` for
+       the full rationale.
+    2. Tests bypass this entirely: ``tests/conftest.py`` builds the
+       TestClient with ``yield TestClient(app)`` (no ``with`` context),
+       so lifespan never fires during the test suite. Test fixtures
+       own their own schema via the ``test_engine`` fixture. This
+       keeps the existing in-memory SQLite tests unaffected.
+    """
+    from app.db.session import init_db
+    init_db()
+    yield
+
 
 app = FastAPI(
     title="BuildHealth API",
@@ -11,6 +35,7 @@ app = FastAPI(
     version="0.3.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
