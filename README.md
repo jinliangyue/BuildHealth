@@ -391,7 +391,7 @@ BuildHealth/
 ├── benchmark/external/    NAB anomaly-detection benchmark
 ├── scripts/verify.sh      one-command local verification (backend + frontend + build)
 ├── scripts/verify_benchmarks.sh  opt-in NAB regression check
-├── Dockerfile.backend     Python 3.11-slim image for FastAPI + SQLite
+├── Dockerfile.backend     Python 3.12-slim image for FastAPI + SQLite
 ├── Dockerfile.frontend    multi-stage build → nginx serving the Vite bundle
 ├── nginx.conf             SPA fallback + /api proxy to backend service
 └── docker-compose.yml     one-shot local stack on http://localhost:8080
@@ -442,7 +442,7 @@ docker compose down
 docker compose down -v
 ```
 
-Images are built from `Dockerfile.backend` (Python 3.11-slim, ~400 MB) and
+Images are built from `Dockerfile.backend` (Python 3.12-slim, ~400 MB) and
 `Dockerfile.frontend` (multi-stage Node → nginx:alpine, ~40 MB). The backend
 runs `scripts.seed_data` automatically on first start via
 `backend/docker-entrypoint.sh`; subsequent restarts skip seeding.
