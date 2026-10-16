@@ -1,7 +1,7 @@
 /**
  * useApi hook 测试 · 覆盖 loading / success / error / refetch
  */
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { useApi } from "../src/hooks/useApi";
 

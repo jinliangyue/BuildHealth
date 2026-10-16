@@ -446,7 +446,7 @@ export const COST_LEVEL_COLORS: Record<RetrofitCostLevel, string> = {
 };
 
 // ===== AI Engineering Assistant (V3) =====
-export type AIProviderType = "mock" | "openai" | "anthropic" | "other";
+export type AIProviderType = "mock" | "openai" | "openai-compatible" | "anthropic" | "other";
 export type AISeverity = "info" | "low" | "medium" | "high";
 export type AIUrgency = "low" | "medium" | "high";
 export type AIEvidenceSourceType =

@@ -3,7 +3,7 @@
  * - 验证 component 接收数据并尝试渲染
  * - 验证 empty data 处理
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 // Mock echarts-for-react 避免 jsdom 中真实 canvas 绘制
 vi.mock("echarts-for-react", () => ({

@@ -66,7 +66,9 @@ describe("ProviderBadge", () => {
   it("renders without crashing for unknown future provider", () => {
     const h: AIHealthStatus = {
       ...baseHealth,
-      provider: "future-anthropic-2027",
+      // Intentionally a value the AIProviderType union does not include,
+      // so this exercises the fallback render branch rather than a known path.
+      provider: "future-anthropic-2027" as unknown as AIHealthStatus["provider"],
       model: "x",
     };
     render(<ProviderBadge health={h} />);

@@ -2,7 +2,8 @@
 # =========================
 # Centralises which files are measured, which are excluded, and how the
 # summary reports are formatted. The current measured baseline is
-# **~95 % line coverage** across `app/` (416 tests, all passing).
+# **~95 % line coverage** across `app/` (477 passed / 5 skipped as of
+# commit defe54d; not enforced — see below).
 #
 # What this file intentionally does NOT do:
 #   - Set a `--cov-fail-under` threshold. Coverage is reported, not
