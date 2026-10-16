@@ -56,16 +56,16 @@ backend/
 └── venv/                # 本地虚拟环境(Python 3.12.14)
 ```
 
-## 当前状态（Phase 6B · v1.1.0）
+## 当前状态（Phase 6B · v1.1.0 · perf round 2 2026-10-16）
 
-- ✅ FastAPI 应用 + CORS + 健康检查 + 21 个 API endpoints
+- ✅ FastAPI 应用 + CORS + 健康检查 + **22 个 API endpoints**(`/api/buildings/risk-board` 为性能轮新增)
 - ✅ 配置完整(BHI v1.0 / RP-v1.0 / Risk v1.0 参数版本化)
 - ✅ 9 张 ORM 表全部定义 + 启动期 `init_db()` 幂等补全
 - ✅ Analytics Engine(三方法异常 / BHI / 风险 / Retrofit priority)
 - ✅ AI Engineering Assistant(Mock 默认 + 可选 openai-compatible,43 禁词 + 强制 disclaimer)
 - ✅ RAG 检索评估集(50 query,recall@3=0.64 / MRR=0.54)
 - ✅ Audit 中间件(每个 HTTP 请求一行 metadata,不存 body 与 AI 文本)
-- ✅ 测试覆盖:CI **473 passed, 1 skipped**(CI 不装 deepeval → `test_deepeval_integration.py` 整模块 `importorskip`,只计 1 个 skip);本地装有 deepeval 时收集 483 = **478 passed + 5 skipped**(那 5 个 live 用例需 `OPENAI_API_KEY`)
+- ✅ 测试覆盖:CI **473 passed, 1 skipped**(CI 不装 deepeval → `test_deepeval_integration.py` 整模块 `importorskip`,只计 1 个 skip);本地装有 deepeval 时收集 496 = **491 passed + 5 skipped**(那 5 个 live 用例需 `OPENAI_API_KEY`)。最近一次重测 2026-10-16。
 
 详见 `../docs/03_System_Architecture.md` · `../docs/04_Data_Model.md` ·
 `../docs/28_Project_Fact_Sheet.md` §17–§21。

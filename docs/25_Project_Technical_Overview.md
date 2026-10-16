@@ -228,11 +228,11 @@ it contains no standard codes and no redline phrases.
 
 | Suite | Result |
 |---|---|
-| Backend | **412 passed** |
-| Frontend | **97 passed** (15 files) |
+| Backend | **491 passed, 5 skipped** (last re-measured 2026-10-16 after perf round 2; previous snapshot 412 passed) |
+| Frontend | **101 passed** across 16 files (last re-measured 2026-10-16; previous snapshot 97) |
 | TypeScript | 0 errors |
-| Production build | passes (714 modules) |
-| API smoke test | 19/19 endpoints responding |
+| Production build | passes (716 modules transformed · chunk 1,354 KB) |
+| API smoke test | **22 / 22 endpoints responding** (last re-measured 2026-10-16; previous snapshot 19/19 — historical, no longer authoritative). New: `/api/buildings/risk-board` (perf round 2 batched endpoint) |
 
 Beyond the usual unit and API coverage, the suite pins properties that are easy
 to lose silently:

@@ -273,12 +273,12 @@ no cloud services.
 
 | Suite | Result |
 |---|---|
-| Backend | **473 passed, 1 skipped** in CI (33 `test_*.py` files; deepeval is absent there, so `test_deepeval_integration.py` is skipped as one whole-module `importorskip`). Locally with deepeval installed: 483 collected = **478 passed + 5 skipped** (those 5 live tests need `OPENAI_API_KEY`) |
-| Frontend | **97 passed** (15 test files) |
+| Backend | **473 passed, 1 skipped** in CI (34 `test_*.py` files; deepeval is absent there, so `test_deepeval_integration.py` is skipped as one whole-module `importorskip`). Locally with deepeval installed: 496 collected = **491 passed + 5 skipped** (those 5 live tests need `OPENAI_API_KEY`). Last re-measured 2026-10-16 after perf round 2 (`830c21a` + `perf(api): batch RiskHealth page into one request`). |
+| Frontend | **101 passed** (16 test files) — last re-measured 2026-10-16 |
 | TypeScript | 0 errors (`tests/` included since 2026-10-16) |
 | Production build | passes (`vite build` ✓; **716 modules transformed** · chunk 1,354 KB) |
-| API smoke test | **21 / 21 endpoints responding** (incl. audit log; verified on real `uvicorn`) |
-| Line coverage (backend) | **95 %** of `app/` (2,465 statements · 125 missing · TOTAL 95 %) — config in `backend/.coveragerc`; XML + HTML reports on every CI run |
+| API smoke test | **22 / 22 endpoints responding** (incl. audit log + new `/api/buildings/risk-board`; verified on real `uvicorn`). Count via `len(app.openapi()["paths"])` — see `docs/Backend_Endpoints.md` |
+| Line coverage (backend) | **95 %** of `app/` (2,491 statements · 116 missing · TOTAL 95 %) — config in `backend/.coveragerc`; XML + HTML reports on every CI run. Last re-measured 2026-10-16. |
 
 Coverage extends beyond ordinary unit and API tests to properties that are easy
 to lose silently:

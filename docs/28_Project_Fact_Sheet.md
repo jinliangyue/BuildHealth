@@ -307,11 +307,11 @@ across requests would require caching, which is deliberately out of scope.
 
 | Suite | Result |
 |---|---|
-| Backend (pytest) | **478 passed, 5 skipped** across 33 `test_*.py` files (pytest collects 483 = 478 passed + 5 deepeval-live skipped) |
-| Frontend (Vitest + Testing Library) | **97 passed** across 15 files |
+| Backend (pytest) | **491 passed, 5 skipped** across 34 `test_*.py` files (pytest collects 496 = 491 passed + 5 deepeval-live skipped). Last re-measured 2026-10-16 after perf round 2. |
+| Frontend (Vitest + Testing Library) | **101 passed** across 16 files. Last re-measured 2026-10-16. |
 | TypeScript | 0 errors (`tests/` included since 2026-10-16) |
 | Production build | passes (`vite build` ✓; 1,354 KB chunk) |
-| API smoke test | **21 / 21 endpoints responding** (incl. `/api/audit` and `/api/audit/stats`) |
+| API smoke test | **22 / 22 endpoints responding** (incl. `/api/audit` and `/api/audit/stats` and new `/api/buildings/risk-board`). Last re-measured 2026-10-16 via `len(app.openapi()["paths"])`. |
 
 Beyond ordinary unit and API coverage, the suite pins properties that are easy
 to lose silently:

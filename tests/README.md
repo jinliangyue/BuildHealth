@@ -3,14 +3,14 @@
 项目根的 `tests/` 目录**仅保留 README 占位**;实际测试在两个
 独立位置:
 
-- **`backend/tests/`** — pytest,Python。33 个 `test_*.py` + conftest.py
-  + `__init__.py`;`408` 个 `def test_` 函数。收集数取决于可选的 deepeval
-  装没装:CI 里没装 → 收集 **474**(473 passed + 1 skipped,
-  `test_deepeval_integration.py` 整模块 `importorskip` 只计 1 个 skip);
-  本地装了 → 收集 **483**(478 passed + 5 skipped,其中 5 个 live 用例
-  需 `OPENAI_API_KEY`)。
+- **`backend/tests/`** — pytest,Python。**34** 个 `test_*.py` + conftest.py
+  + `__init__.py`;**419** 个 `def test_` 函数(2026-10-16 perf round 2
+  重测)。收集数取决于可选的 deepeval 装没装:CI 里没装 → 收集 **474**
+  (473 passed + 1 skipped,`test_deepeval_integration.py` 整模块
+  `importorskip` 只计 1 个 skip);本地装了 → 收集 **496**(491 passed
+  + 5 skipped,其中 5 个 live 用例需 `OPENAI_API_KEY`)。
 - **`frontend/tests/`** — vitest + Testing Library,TypeScript/TSX。
-  15 个测试文件 / 97 个 `it(...)` 用例。
+  **16** 个测试文件 / **101** 个 `it(...)` 用例(2026-10-16 重测)。
 
 ## 不再依赖仓库根 tests/
 

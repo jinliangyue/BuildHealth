@@ -19,6 +19,14 @@
 > 对齐。CI 默认不安装 deepeval,10 个 deepeval 测试中 5 个纯离线 +
 > 5 个 live 全部在 CI skip(本机配 OPENAI_API_KEY 时 live 跑)。
 >
+> **2026-10-16 · 性能轮 R2**(本轮):检索器真单例 + RiskHealth 页面
+> 91 → 1 次 HTTP。`830c21a` 检索器单例化(45x / 189x),新增
+> `GET /api/buildings/risk-board` (固定 6 条 SQL,与 N 无关);前端
+> `RiskHealth.tsx` 单请求聚合;测试 478 → **491 passed,5 skipped**
+> (34 个 test 文件),前端 97 → **101 passed**(16 文件),端点 21 →
+> **22**。详见本文件对应章节 + `BuildHealth-prep-notes/42_Perf_Round_2_Report.md`。
+> **(未 push,等你授权。)**
+>
 > **2026-10-16 · 止血轮 R1**(本轮):让 CI 转绿 + 审计落库 + 配置层
 > 真活。commit `47447b4` / `4167ad1` / `2e3f346`。详见本文件对应
 > 章节。
@@ -328,3 +336,81 @@ ef095b5 仍指向 09-17 状态,可作为求职材料"对外叙事基线"使用,
 - `requirements.txt` 钉 `pytest==8.3.3` vs 本地实际 9.1.1 的漂移(E 任务)
 - 是否为 `BuildHealth/` 建自有 `CLAUDE.md`(目前仓库从父目录继承
   "内容创作系统"CLAUDE.md,与本仓库无关)
+
+---
+
+## 2026-10-16 · 性能轮 R2(检索器真单例 · RiskHealth 91 → 1)
+
+**背景**:R1 把 CI 转绿 + 审计落库 + 配置真活;R2 接着清两项**已
+核实**的工程债:
+
+- 检索器 docstring 自称 "Singleton-style" 但实现每次都重读 6 篇
+  Markdown + 重建 TF-IDF 索引,每个 AI 请求都付一次构造开销。
+- RiskHealth 页面 1 + 30 + 30 + 30 = **91 次 HTTP 请求**只为渲染
+  30 栋楼的 BHI/风险/异常总览,服务端与浏览器都吃亏。
+
+**决策**:两件都修,**只动这两件**,不新增用户可见功能,不动算法与 AI 红线。
+
+### 改动(3 个本地 commit,未 push)
+
+- `830c21a` `perf(knowledge): make get_default_retriever a real singleton`
+  - 模块级单例缓存 `_cached_retriever`,`reset_default_retriever_cache()`
+    暴露给测试。
+  - docstring 改写为事实陈述,并明确"改 .md 需重启进程才生效"。
+  - 新增 `test_get_default_retriever_is_real_singleton` 锁定 `a is b`。
+  - 实测性能:`get_default_retriever` 单次 2.66 ms → 0.059 ms (45x);
+    完整 AI 请求路径(新建 + query)18.54 ms → 0.098 ms (189x)。
+
+- (待 commit)`perf(api): batch the RiskHealth page into one request`
+  - 新增端点 `GET /api/buildings/risk-board`(注册在 `/{building_id}` **之前**,
+    否则被 int("risk-board") 校验为 422)。
+  - 后端在 `svc.get_risk_board()` 内复用 `get_buildings_overview` (4 条
+    固定 bulk SQL) + 1 条 SQL 一次拉完全部 active alerts (joined
+    Building for name),共 **6 条 SQL,N=1 / 10 / 30 完全一致**(实测)。
+  - 逐楼端点 `/health` `/risk` `/alerts` 路径/签名/响应字段 0 改动。
+  - 新增 `test_risk_board_equivalent_to_per_building_endpoints`:**字段级**
+    等价测试,聚合结果里每栋楼 health/risk 必须与逐楼端点完全相同;
+    `test_risk_board_sql_count_is_invariant_of_N` 实测 SQL 条数不随 N 增长。
+  - 前端 `RiskHealth.tsx` 改用 `buildingsApi.riskBoard()`,从 91 次请求
+    减为 **1 次**;`buildingsApi.list / healthApi.get / riskApi.classify /
+    riskApi.alerts` 不再被调用(编译阶段 + 测试双重锁定)。
+  - 新增 `frontend/tests/RiskHealth.test.tsx` 4 条,首条断言 `riskBoard`
+    **只被调用 1 次**,且 `buildingsApi.list / overview` 不被调用。
+
+- (待 commit)`docs: re-measure test and endpoint counts after R2`
+  - 测试计数:478 → **491 passed, 5 skipped**(34 个 `test_*.py`,
+    **419** 个 `def test_`,实测 AST 数)。
+  - 前端计数:97 → **101 passed**(16 个测试文件)。
+  - 端点计数:21 → **22**(`len(app.openapi()["paths"])` 可复现口径)。
+  - 覆盖率:2,491 statements · **116 missing** · TOTAL 95%(实测)。
+  - `README.md` · `docs/28_Project_Fact_Sheet.md` · `docs/25_Project_Technical_Overview.md`
+    · `backend/README.md` · `tests/README.md` · `backend/.coveragerc`
+    全部同步更新,数字 + commit 锚点都写明。
+  - `docs/24` · `docs/27` · CHANGELOG 历史数字 **未动**(历史快照)。
+
+### 实测验收(全部按 §10 验收清单贴输出,详见 `BuildHealth-prep-notes/42_Perf_Round_2_Report.md`)
+
+- 后端 `pytest tests -q`:**491 passed, 5 skipped**
+- 前端 `npx vitest run`:**101 passed** across 16 files
+- `npx tsc --noEmit`:**exit 0**
+- `npm run lint`:**exit 0**
+- `len(app.openapi()["paths"])`:**22**
+- 检索器构造:`2.66 ms → 0.059 ms (n=20)`
+- AI 请求路径(新建 + query):`18.54 ms → 0.098 ms (n=20)`
+- RiskHealth 页面 HTTP 请求:**91 → 1**(前端测试断言)
+- 聚合端点 SQL 条数:**N=1 / 10 / 30 全 = 6**
+
+### 没做(R2 红线)
+
+- `git push origin main`(R4 硬规则,等你点头)
+- analytics/ 任何阈值 / 权重 / 算法改动(BHI 五维权重、风险四档边界、
+  异常检测三方法、`RISK_CLASSIFICATION_VERSION`)
+- ai/ 任何红线条改动(43 禁词、强制 disclaimer、provider 降级、RAG 红线)
+- 逐楼端点 `/health` `/risk` `/alerts` 的对外行为
+- 前端 chunk 1,354 kB 的代码分割(路由级 `React.lazy` + `Suspense`,
+  报告里给判断:值得做,但留作 R3 候选)
+- 跨项目横向汇总文档(留作 R3 候选)
+- Resume 5 套版本同步更新(本轮不动)
+- 是否把 ROADMAP "跨 endpoint 共享分析结果" 挪到"已完成":B 与前者
+  相关但口径不完全等同,等用户决定
+- 是否为 `BuildHealth/` 建自有 `CLAUDE.md`:沿用 R1 未决项
