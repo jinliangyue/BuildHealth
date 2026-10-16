@@ -65,7 +65,7 @@ backend/
 - ✅ AI Engineering Assistant(Mock 默认 + 可选 openai-compatible,43 禁词 + 强制 disclaimer)
 - ✅ RAG 检索评估集(50 query,recall@3=0.64 / MRR=0.54)
 - ✅ Audit 中间件(每个 HTTP 请求一行 metadata,不存 body 与 AI 文本)
-- ✅ 测试覆盖:478 passed, 5 skipped(CI 默认不安装 deepeval → 5 个 live 测试 skip)
+- ✅ 测试覆盖:CI **473 passed, 1 skipped**(CI 不装 deepeval → `test_deepeval_integration.py` 整模块 `importorskip`,只计 1 个 skip);本地装有 deepeval 时收集 483 = **478 passed + 5 skipped**(那 5 个 live 用例需 `OPENAI_API_KEY`)
 
 详见 `../docs/03_System_Architecture.md` · `../docs/04_Data_Model.md` ·
 `../docs/28_Project_Fact_Sheet.md` §17–§21。

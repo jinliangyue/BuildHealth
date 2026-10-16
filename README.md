@@ -273,7 +273,7 @@ no cloud services.
 
 | Suite | Result |
 |---|---|
-| Backend | **478 passed, 5 skipped** (33 `test_*.py` files; pytest collects 483 = 478 passed + 5 deepeval-live skipped) |
+| Backend | **473 passed, 1 skipped** in CI (33 `test_*.py` files; deepeval is absent there, so `test_deepeval_integration.py` is skipped as one whole-module `importorskip`). Locally with deepeval installed: 483 collected = **478 passed + 5 skipped** (those 5 live tests need `OPENAI_API_KEY`) |
 | Frontend | **97 passed** (15 test files) |
 | TypeScript | 0 errors (`tests/` included since 2026-10-16) |
 | Production build | passes (`vite build` ✓; **716 modules transformed** · chunk 1,354 KB) |

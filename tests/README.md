@@ -4,8 +4,11 @@
 独立位置:
 
 - **`backend/tests/`** — pytest,Python。33 个 `test_*.py` + conftest.py
-  + `__init__.py`;`408` 个 `def test_` 函数;pytest 实际收集 **483**
-  (= 478 passed + 5 skipped,5 个 deepeval-live 在 CI 默认 skip)。
+  + `__init__.py`;`408` 个 `def test_` 函数。收集数取决于可选的 deepeval
+  装没装:CI 里没装 → 收集 **474**(473 passed + 1 skipped,
+  `test_deepeval_integration.py` 整模块 `importorskip` 只计 1 个 skip);
+  本地装了 → 收集 **483**(478 passed + 5 skipped,其中 5 个 live 用例
+  需 `OPENAI_API_KEY`)。
 - **`frontend/tests/`** — vitest + Testing Library,TypeScript/TSX。
   15 个测试文件 / 97 个 `it(...)` 用例。
 
