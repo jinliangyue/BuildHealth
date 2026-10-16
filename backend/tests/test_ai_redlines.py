@@ -207,58 +207,38 @@ def test_no_forbidden_phrase_in_recommended_actions(test_session, profile):
 
 
 # ============ Schema 完整性 ============
-def test_evidence_has_source_type():
+def test_evidence_has_source_type(test_session):
     """所有 evidence 必有 source_type."""
     for profile in ["healthy", "attention", "abnormal"]:
         from app.db import models as m
-        from app.db.session import SessionLocal
-        s = SessionLocal()
-        try:
-            ctx = _build_context(s, profile)
-            r = MockProvider().generate_summary(ctx)
-            for e in r.evidence:
-                assert e.source_type, f"evidence missing source_type (profile={profile})"
-                assert e.description, f"evidence missing description (profile={profile})"
-        finally:
-            s.close()
+        ctx = _build_context(test_session, profile)
+        r = MockProvider().generate_summary(ctx)
+        for e in r.evidence:
+            assert e.source_type, f"evidence missing source_type (profile={profile})"
+            assert e.description, f"evidence missing description (profile={profile})"
 
 
-def test_key_findings_have_severity():
+def test_key_findings_have_severity(test_session):
     for profile in ["healthy", "attention", "abnormal"]:
         from app.db import models as m
-        from app.db.session import SessionLocal
-        s = SessionLocal()
-        try:
-            ctx = _build_context(s, profile)
-            r = MockProvider().generate_summary(ctx)
-            for kf in r.key_findings:
-                assert kf.severity in ("info", "low", "medium", "high")
-        finally:
-            s.close()
+        ctx = _build_context(test_session, profile)
+        r = MockProvider().generate_summary(ctx)
+        for kf in r.key_findings:
+            assert kf.severity in ("info", "low", "medium", "high")
 
 
 # ============ 强制 disclaimer 出现 ============
-def test_response_disclaimer_matches_ai_disclaimer():
+def test_response_disclaimer_matches_ai_disclaimer(test_session):
     from app.db import models as m
-    from app.db.session import SessionLocal
-    s = SessionLocal()
-    try:
-        ctx = _build_context(s, "abnormal")
-        r = MockProvider().generate_summary(ctx)
-        assert r.disclaimer == AI_DISCLAIMER
-    finally:
-        s.close()
+    ctx = _build_context(test_session, "abnormal")
+    r = MockProvider().generate_summary(ctx)
+    assert r.disclaimer == AI_DISCLAIMER
 
 
 # ============ provider 标识必须显式 ============
-def test_response_provider_is_mock():
+def test_response_provider_is_mock(test_session):
     from app.db import models as m
-    from app.db.session import SessionLocal
-    s = SessionLocal()
-    try:
-        ctx = _build_context(s, "abnormal")
-        r = MockProvider().generate_summary(ctx)
-        assert r.provider == "mock"
-        assert "mock" in r.model.lower()  # 不伪装成真实 LLM
-    finally:
-        s.close()
+    ctx = _build_context(test_session, "abnormal")
+    r = MockProvider().generate_summary(ctx)
+    assert r.provider == "mock"
+    assert "mock" in r.model.lower()  # 不伪装成真实 LLM
