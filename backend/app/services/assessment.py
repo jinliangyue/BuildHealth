@@ -454,6 +454,62 @@ def get_buildings_overview(session: Session) -> List[Dict]:
     return items
 
 
+def get_risk_board(session: Session) -> Dict:
+    """
+    Batch API for the RiskHealth page: 一次请求拿回 { items, alerts }.
+
+    Equivalent to calling the per-building endpoints (`/health`, `/risk`,
+    `/alerts?active_only=true`) for every building, then aggregating — but
+    with **fixed** SQL cost, independent of building count.
+
+    Implementation:
+        - `items` is delegated to `get_buildings_overview` (4 fixed bulk
+          queries: buildings, latest assessments, sensors, monitoring
+          series; per-building anomaly + risk is computed in-memory).
+          This preserves the per-building failure isolation contract
+          (a failing building shows `health=null, risk=null`, the rest
+          stay populated; the page filters it out).
+        - `alerts` is a **single** query: `RiskAlert` rows with
+          `status='active'`, joined to `Building` for `name`. No N+1.
+
+    Returns:
+        `{"items": [...], "alerts": [...]}` where each alert has
+        `building_name` attached (cross-building table needs it).
+
+    SQL cost (measured): `overview` baseline + 1 alert query = constant
+    with N (verified by the regression test `test_risk_board_sql_count_*`).
+    """
+    items = get_buildings_overview(session)
+    # 单次 join 拉全楼 active alerts + building name; 无 N+1
+    alert_rows = (
+        session.query(m.RiskAlert, m.Building.name)
+        .join(m.Building, m.Building.id == m.RiskAlert.building_id)
+        .filter(m.RiskAlert.status == "active")
+        .order_by(m.RiskAlert.timestamp.desc())
+        .all()
+    )
+    alerts: List[Dict] = []
+    for alert, building_name in alert_rows:
+        a = {
+            "id": alert.id,
+            "building_id": alert.building_id,
+            "sensor_id": alert.sensor_id,
+            "metric": alert.metric,
+            "timestamp": alert.timestamp,
+            "current_value": alert.current_value,
+            "baseline_value": alert.baseline_value,
+            "change": alert.change,
+            "detection_method": alert.detection_method,
+            "severity": alert.severity,
+            "explanation": alert.explanation,
+            "status": alert.status,
+            "created_at": alert.created_at,
+            "building_name": building_name,
+        }
+        alerts.append(a)
+    return {"items": items, "alerts": alerts}
+
+
 def get_dashboard_summary(session: Session) -> Dict:
     """Dashboard 聚合接口：所有数值从数据库实时计算，不硬编码。"""
     buildings = session.query(m.Building).order_by(m.Building.id).all()

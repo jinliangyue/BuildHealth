@@ -164,6 +164,32 @@ class BuildingsOverviewResponse(BaseModel):
     items: List[BuildingOverviewItem]
 
 
+# ===================== Risk Board (RiskHealth single-request batch) =====================
+class RiskAlertWithBuildingRead(RiskAlertRead):
+    """RiskAlertRead + the building name for cross-building list rendering.
+
+    Used by the RiskHealth page so a single request can render all
+    active alerts across all buildings (with their building name attached),
+    instead of issuing one `/alerts` call per building (= 30 extra requests).
+    """
+    building_name: str
+
+
+class RiskBoardResponse(BaseModel):
+    """Single-request response for the RiskHealth page.
+
+    - `items` mirrors `BuildingsOverviewResponse.items` (building + health + risk
+      + active_alert_count), so we don't re-derive health/risk here; we reuse
+      the existing batched implementation in `get_buildings_overview`.
+    - `alerts` is the **full** active-alert set across all buildings, with
+      `building_name` attached. The page renders up to the first 50, sorted
+      by severity then time, on the client (display-only ordering).
+    """
+    total: int
+    items: List[BuildingOverviewItem]
+    alerts: List[RiskAlertWithBuildingRead]
+
+
 # ===================== Retrofit Decision (V2) =====================
 class RetrofitPriorityLevelEnum(str, Enum):
     Low = "Low"

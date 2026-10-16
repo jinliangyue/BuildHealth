@@ -1,5 +1,9 @@
 /**
  * Risk & Health · 风险列表 + BHI 雷达 + 异常全表
+ *
+ * 性能轮 R2: 整个页面由 **1 次** GET /api/buildings/risk-board 拉回,
+ * 不再"1 次 list + 30 次 health + 30 次 risk + 30 次 alerts = 91 次"。
+ * 后端实现见 backend/app/api/buildings.py::buildings_risk_board。
  */
 import { Link } from "react-router-dom";
 import TopBar from "../components/layout/TopBar";
@@ -13,8 +17,6 @@ import {
 import BhiRadar from "../components/charts/BhiRadar";
 import DistributionPie from "../components/charts/DistributionPie";
 import { buildingsApi } from "../api/buildings";
-import { healthApi } from "../api/health";
-import { riskApi } from "../api/risk";
 import { useApi } from "../hooks/useApi";
 import { formatTimestamp, formatNumber } from "../hooks/format";
 import {
@@ -25,49 +27,38 @@ import {
   RISK_LEVEL_LABELS,
   SEVERITY_COLORS,
   bhiRiskBandLabel,
-  type Building,
   type HealthAssessment,
-  type RiskAlert,
   type RiskClassification,
   type RiskDistribution,
   type DimensionInfo,
+  type RiskBoardItem,
+  type RiskAlertWithBuilding,
 } from "../types/api";
 
 interface BuildingBlock {
-  building: Building;
+  building: RiskBoardItem["building"];
   health: HealthAssessment;
   risk: RiskClassification;
 }
 
 export default function RiskHealth() {
   const { data, loading, error, refetch } = useApi(async () => {
-    const buildings = await buildingsApi.list();
-    const blocks = await Promise.all(
-      buildings.map(async (b): Promise<BuildingBlock | null> => {
-        try {
-          const health = await healthApi.get(b.id);
-          const risk = await riskApi.classify(b.id);
-          return { building: b, health, risk };
-        } catch {
-          return null;
-        }
-      }),
-    );
-    const validBlocks = blocks.filter((x): x is BuildingBlock => x !== null);
-    // 收集全部 alerts
-    const allAlerts: (RiskAlert & { building_name: string })[] = (
-      await Promise.all(
-        buildings.map(async (b) => {
-          try {
-            const alerts = await riskApi.alerts(b.id, true);
-            return alerts.map((a) => ({ ...a, building_name: b.name }));
-          } catch {
-            return [];
-          }
-        }),
+    // **单次请求**: 拿回所有建筑的健康/风险 + 全楼 active alerts
+    const board = await buildingsApi.riskBoard();
+    // 把"有 health 的"楼挑出来当 blocks; 缺的楼 (per-building 异常被隔离)
+    // 与原本 try/catch 返回 null 的行为一致 — 直接从 blocks 数组里丢
+    const validBlocks: BuildingBlock[] = board.items
+      .filter(
+        (it): it is RiskBoardItem & { health: HealthAssessment; risk: RiskClassification } =>
+          it.health !== null && it.risk !== null,
       )
-    ).flat();
-    // 分布
+      .map((it) => ({
+        building: it.building,
+        health: it.health,
+        risk: it.risk,
+      }));
+
+    // 风险等级分布 (与原实现完全一致的纯展示层累加)
     const distribution: RiskDistribution = {
       Normal: 0,
       Attention: 0,
@@ -77,14 +68,16 @@ export default function RiskHealth() {
     validBlocks.forEach((b) => {
       distribution[b.risk.risk_level] += 1;
     });
-    // 排序 alerts by severity desc, time desc
+
+    // 排序 alerts by severity desc, time desc — 展示层, 留前端
     const severityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
-    allAlerts.sort((a, b) => {
+    const alerts: RiskAlertWithBuilding[] = [...board.alerts].sort((a, b) => {
       const sev = severityOrder[a.severity] - severityOrder[b.severity];
       if (sev !== 0) return sev;
       return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
     });
-    return { blocks: validBlocks, alerts: allAlerts, distribution };
+
+    return { blocks: validBlocks, alerts, distribution };
   });
 
   return (

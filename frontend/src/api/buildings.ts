@@ -7,6 +7,7 @@ import type {
   Sensor,
   HealthAssessment,
   RiskClassification,
+  RiskBoardResponse,
 } from "../types/api";
 
 export interface BuildingOverview {
@@ -36,6 +37,12 @@ export const buildingsApi = {
   },
   overview: async (): Promise<BuildingsOverviewResponse> => {
     const r = await apiClient.get<BuildingsOverviewResponse>("/buildings/overview");
+    return r.data;
+  },
+  /** 性能轮 R2: RiskHealth 页面专用, 1 次拿回 blocks + 全楼 active alerts.
+   * 后端实现: GET /api/buildings/risk-board (固定 6 条 SQL, 与 N 无关). */
+  riskBoard: async (): Promise<RiskBoardResponse> => {
+    const r = await apiClient.get<RiskBoardResponse>("/buildings/risk-board");
     return r.data;
   },
 };

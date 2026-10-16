@@ -116,6 +116,27 @@ export interface DashboardSummary {
   recent_alerts: RiskAlert[];
 }
 
+// ===== Risk Board (RiskHealth 页面 91→1 单请求聚合) =====
+/** 与 backend/app/schemas/api.py::RiskAlertWithBuildingRead 一致 */
+export interface RiskAlertWithBuilding extends RiskAlert {
+  building_name: string;
+}
+
+/** 与 backend BuildingOverviewItem 一致 */
+export interface RiskBoardItem {
+  building: Building;
+  health: HealthAssessment | null;
+  risk: RiskClassification | null;
+  active_alert_count: number;
+}
+
+/** 与 backend RiskBoardResponse 一致 */
+export interface RiskBoardResponse {
+  total: number;
+  items: RiskBoardItem[];
+  alerts: RiskAlertWithBuilding[];
+}
+
 // ===== Display Helpers =====
 export interface DimensionInfo {
   key: keyof Pick<
