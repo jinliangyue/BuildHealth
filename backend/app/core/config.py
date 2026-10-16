@@ -1,6 +1,17 @@
 """
-配置管理 · Phase 0 占位
-Phase 1 引入 pydantic-settings 加载 .env
+配置管理
+========
+
+本项目**显式不使用** pydantic-settings / .env 文件,所有可调参数以
+Python 常量形式硬编码在此模块顶部 — 保证本地复现性 + 无秘密泄露
+风险。
+
+工程参数(BHI 权重 / 风险边界 / 优先权阈值 / anomaly 阈值)全部带
+版本号(BHI v1.0 / RP-v1.0 / Risk v1.0)以便参数对比与回滚。
+
+变更历史:Phase 0 (2026-09-15) 占位 → Phase 1 (2026-09-22) 完整
+实现 → Phase 6B (2026-09-26) 加入 AI_PROVIDER 系列 + Real LLM
+支持。本模块从未再被改"回 Phase 0"。
 """
 import os
 from typing import Optional

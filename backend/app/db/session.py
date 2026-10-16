@@ -1,6 +1,16 @@
 """
 数据库 Session 管理
-Phase 0 占位 · Phase 1 实现完整逻辑
+====================
+
+完整实现见 Phase 1(2026-09-22)。当前职责:
+
+* 创建全局 SQLAlchemy engine(SQLite,thread-share)。
+* 暴露 ``SessionLocal`` + FastAPI ``get_db`` 依赖。
+* 暴露 ``init_db()`` — 幂等的缺表补全入口,详见函数 docstring。
+  项目**不**使用 alembic,见 init_db() 注释。
+
+变更历史:Phase 0 (2026-09-15) 占位 → Phase 1 (2026-09-22) 完整实现
+→ 2026-10-16 止血轮 R1 加入 init_db() + import-time/engine 创建分离。
 """
 from app.core.config import DATABASE_URL
 from sqlalchemy import create_engine
