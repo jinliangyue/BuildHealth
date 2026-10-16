@@ -168,15 +168,68 @@ class KnowledgeRetriever:
         return results
 
 
+# Module-level singleton cache. See `get_default_retriever` docstring.
+# We intentionally avoid `@lru_cache` on a no-arg function: the
+# `get_default_retriever_returns_none_when_no_knowledge_dir` test
+# monkeypatches `cwd` and expects the function to keep responding to
+# the directory's existence on every call (the existing path is computed
+# from `__file__`, not cwd, so this is mostly a smoke test, but the
+# contract is: missing dir → None, never cached as None).
+_cached_retriever: Optional[KnowledgeRetriever] = None
+_cached_dir_path: Optional[Path] = None
+
+
 def get_default_retriever() -> Optional[KnowledgeRetriever]:
     """
-    Singleton-style retriever 加载默认 knowledge/ 目录.
-    目录不存在或无 .md → 返回 None (RAG disabled, 优雅降级).
+    Load the default knowledge/ retriever as a process-wide singleton.
+
+    Behaviour:
+        - First call: read `backend/knowledge/*.md`, build the TF-IDF
+          index (jieba tokenization happens here).
+        - Subsequent calls: return the cached `KnowledgeRetriever`
+          instance, **no disk reads, no re-tokenization**.
+
+    Graceful degradation:
+        - If the `knowledge/` directory does not exist, or contains no
+          `.md` files, return `None` (RAG disabled, AI endpoints stay up).
+          The `None` result is **not** cached, so the next call re-checks
+          the directory.
+
+    Concurrency:
+        - FastAPI runs sync endpoints in a thread pool, so two threads
+          may race on first call. Both may construct an instance; one
+          is discarded. The retriever itself is read-only after
+          construction, so no shared-state corruption is possible.
+
+    Cache invalidation:
+        - Knowledge files are bundled with the package and treated as
+          static. **Editing `knowledge/*.md` requires a process restart
+          to take effect.** This is an explicit trade-off: it buys us
+          O(construct-once) per process at the cost of a reload ritual.
+        - For tests that need a fresh instance, call
+          `reset_default_retriever_cache()`.
     """
     # retriever.py is at backend/app/knowledge/retriever.py
     # knowledge/ is at backend/knowledge/
     # → 3 个 parent 即可
+    global _cached_retriever, _cached_dir_path
     default_dir = Path(__file__).resolve().parent.parent.parent / "knowledge"
     if not default_dir.exists() or not any(default_dir.glob("*.md")):
+        # 不缓存 None: 目录就绪后下次调用仍能正常加载
         return None
-    return KnowledgeRetriever(default_dir, top_k=3)
+    if _cached_retriever is None or _cached_dir_path != default_dir:
+        _cached_retriever = KnowledgeRetriever(default_dir, top_k=3)
+        _cached_dir_path = default_dir
+    return _cached_retriever
+
+
+def reset_default_retriever_cache() -> None:
+    """
+    Reset the module-level singleton cache. Intended for tests that
+    monkeypatch the knowledge directory at runtime; production callers
+    should not need this because `knowledge/` is static and bundled
+    with the package.
+    """
+    global _cached_retriever, _cached_dir_path
+    _cached_retriever = None
+    _cached_dir_path = None

@@ -4,7 +4,11 @@ Knowledge Retriever Tests · Phase 6B
 from pathlib import Path
 import pytest
 
-from app.knowledge.retriever import KnowledgeRetriever, get_default_retriever
+from app.knowledge.retriever import (
+    KnowledgeRetriever,
+    get_default_retriever,
+    reset_default_retriever_cache,
+)
 
 
 @pytest.fixture
@@ -168,3 +172,25 @@ def test_readme_not_retrievable_in_project_kb():
     for ev in r.retrieve("What is BHI and how is it computed?"):
         assert ev.document != "README.md"
     assert r.n_chunks >= 6  # 至少 6 (有的有 1 chunk fallback)
+
+
+def test_get_default_retriever_is_real_singleton():
+    """性能轮 R2 回归: get_default_retriever 必须真正单例化。
+    docstring 自称 'Singleton-style' / 单例, 实现也必须一致。
+    重置后第二次再调用必须拿回**同一个**对象, 否则 R2 的性能收益
+    (避免每个 AI 请求都重读 6 篇 Markdown + 重建 TF-IDF 索引) 落空。
+    """
+    reset_default_retriever_cache()
+    a = get_default_retriever()
+    b = get_default_retriever()
+    assert a is b, "get_default_retriever 必须返回同一对象, 但实测不是"
+    assert a is not None, "项目知识库存在, 不应为 None"
+    # reset 之后, 首次调用应拿到新的实例 (不是历史缓存)
+    reset_default_retriever_cache()
+    c = get_default_retriever()
+    assert c is not None
+    # 之后再调用必须回到单例 (确认 reset 不破坏新单例)
+    d = get_default_retriever()
+    assert c is d
+    # 重建出来的 c 与历史缓存 a 不是同一对象 (确认 reset 真起作用)
+    assert a is not c
