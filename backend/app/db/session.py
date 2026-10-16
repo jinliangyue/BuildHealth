@@ -34,8 +34,8 @@ def get_db():
         db.close()
 
 
-def init_db() -> None:
-    """Create any missing tables on the live engine. Idempotent.
+def init_db(bind=None) -> None:
+    """Create any missing tables on ``bind`` (default: the live engine). Idempotent.
 
     This project has no migration tool (alembic is commented out in
     requirements.txt; seed_data.py runs ``Base.metadata.create_all``
@@ -52,10 +52,17 @@ def init_db() -> None:
     NOT trigger lifespan (conftest uses ``yield TestClient(app)``
     not ``with TestClient(app)``), so test fixtures stay in control
     of schema lifetime.
+
+    ``bind`` is the seam that makes this function testable: production
+    calls ``init_db()`` and the module-level ``engine`` is used, while a
+    test can point it at a scratch engine, drop a table, and assert it
+    gets filled back in. Without the seam a test can only re-run
+    ``create_all`` against an already-complete fixture schema — which
+    passes even when this function is deleted outright.
     """
     # Imported lazily so creating the engine doesn't require models
     # to be importable (engine is created at module import time, but
     # Base.metadata.create_all needs every model class registered).
     from app.db.base import Base
     from app.db import models  # noqa: F401  · ensure models register onto Base.metadata
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=bind if bind is not None else engine)
