@@ -9,10 +9,28 @@ expected_keywords / forbidden_keywords / disclaimer / evidence_count /
 category_breakdown) and the 43-redline runtime safety gate, this forms
 the third pillar of the AI safety story.
 
-CI compatibility note: this module uses `pytest.importorskip("deepeval")`
-at the top because deepeval 4.x requires Python 3.10+ (PEP 604 union
-types in its own source). On Python 3.9 (one of the CI matrix versions)
-the entire module skips automatically without failing CI.
+CI compatibility note (verified at 2026-10-16):
+
+* deepeval 4.2.8's own METADATA declares ``Requires-Python: >=3.9,<4.0``,
+  i.e. it officially supports Python 3.9. The earlier "requires 3.10+"
+  note in this docstring conflated deepeval's runtime with Python's
+  PEP 604 union-type syntax in *its own source*; that does not block
+  3.9 install but does mean some isolated code paths may misbehave.
+* ``deepeval`` is **deliberately not pinned in ``requirements.txt``**.
+  Putting it there would force every CI job to install a heavy, optional
+  evaluation framework even for jobs that never run a real LLM. Instead,
+  the project treats deepeval as a developer-locally-installed extra.
+* ``pytest.importorskip("deepeval")`` at the top of this module is the
+  actual gate: in CI (where deepeval is intentionally not installed) all
+  10 tests in this file skip — 5 offline (deepeval-shape integration)
+  + 5 live (OPENAI_API_KEY gated). Locally, after
+  ``pip install deepeval``, the 5 offline tests run unconditionally and
+  the 5 live tests run only when ``OPENAI_API_KEY`` is also present.
+
+So on a *clean Python 3.9 clone* the assertion "deepeval module present"
+fails and pytest skips the module entirely. This is the same behavior as
+on Python 3.11 / 3.12 in CI today, and is intentional: no CI job is
+expected to install deepeval.
 
 Unlike the handwritten runner, DeepEval computes **industry-standard
 metric scores** via LLM-as-judge:
@@ -26,7 +44,7 @@ metric scores** via LLM-as-judge:
 
 The offline tests verify the integration shape (AdaptationLayer + sample
 shape) without touching any LLM. The live tests self-skip when
-OPENAI_API_KEY is absent, so they never block CI or local 472 tests.
+OPENAI_API_KEY is absent, so they never block CI.
 """
 from __future__ import annotations
 
@@ -36,10 +54,11 @@ from datetime import datetime, timezone
 import pytest
 
 # -------------------------------------------------------------------- deepeval
-# deepeval 4.x requires Python 3.10+ (PEP 604 union types in its source).
-# Use importorskip so the Python 3.9 CI job skips this whole module cleanly
-# instead of failing at collection time on `from deepeval.test_case import ...`.
-pytest.importorskip("deepeval", reason="deepeval 4.x requires Python 3.10+")
+# Gate the whole module on deepeval being importable. CI does not install
+# deepeval (it is intentionally optional and excluded from requirements.txt)
+# so importorskip keeps the entire 10-test module cleanly skipped there.
+# Locally developers ``pip install deepeval`` themselves.
+pytest.importorskip("deepeval", reason="deepeval is optional; install locally to run these 10 tests")
 
 from deepeval.test_case import LLMTestCase  # noqa: E402  · after importorskip
 
